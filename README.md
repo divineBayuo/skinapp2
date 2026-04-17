@@ -1,4 +1,5 @@
 # skinapp2
+<<<<<<< HEAD
 
 A new Flutter project.
 
@@ -15,3 +16,6 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+=======
+This is a newer version of the skin app with the same functionality; recording, analyzing and managing data on skin neglected tropical diseases.
+>>>>>>> e3a6a604d790468fabe6c7314e74fdcf5cdc70e7
