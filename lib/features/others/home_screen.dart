@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:skinapp2/models/user.dart';
 
 class HomeScreen extends StatefulWidget {
-  final String role;
-  const HomeScreen(this.role, {super.key});
+  final AccessRole role;
+  const HomeScreen({super.key, required this.role});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
