@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skinapp2/core/theme/app_theme.dart';
+import 'package:skinapp2/features/auth/screens/login_screen.dart';
+import 'package:skinapp2/features/others/home_screen.dart';
+import 'package:skinapp2/features/others/onboarding_screen.dart';
+import 'package:skinapp2/features/others/splash_screen.dart';
+import 'package:skinapp2/models/user.dart';
 
 GoRouter createRouter(AppUser? user) {
   return GoRouter(
