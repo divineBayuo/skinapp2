@@ -81,6 +81,24 @@ class PatientRecord {
   }
 
   String get formattedDob {
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${dateOfBirth.day.toString().padLeft(2, '0')}-${months[dateOfBirth.month - 1]}- ${dateOfBirth.year}';
+  }
+
+  String get formattedTimestamp {
     final d = collectedAt;
     final months = [
       'Jan',
