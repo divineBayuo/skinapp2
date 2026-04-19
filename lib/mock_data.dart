@@ -4,7 +4,7 @@
 import 'package:skinapp2/models/diagnosis.dart';
 import 'package:skinapp2/models/patient.dart';
 
-final kMockPatients = [
+final List<PatientRecord> kMockPatients = [
   PatientRecord(
     id: '1', idNumber: 'GHA-001-2509230634',
     locationCoords: '5.6037168, -0.6914456',
