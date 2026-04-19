@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
+import 'package:skinapp2/features/auth/screens/add_patient_screen.dart';
+import 'package:skinapp2/features/auth/screens/view_data_screen.dart';
 import 'package:skinapp2/models/diagnosis.dart';
 import 'package:skinapp2/models/user.dart';
 import 'package:skinapp2/shared/widgets/bottom_navbar.dart';
