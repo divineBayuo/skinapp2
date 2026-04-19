@@ -3,6 +3,7 @@
 // ------------------------------------
 import 'package:flutter/material.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
+import 'package:skinapp2/features/auth/screens/patient_detail_screen.dart';
 import 'package:skinapp2/mock_data.dart';
 import 'package:skinapp2/models/patient.dart';
 import 'package:skinapp2/models/user.dart';
