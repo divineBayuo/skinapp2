@@ -59,6 +59,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SKiN NTD needs your location to record patient GPS coordinates.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>SKiN NTD needs your location to record patient GPS coordinates.</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

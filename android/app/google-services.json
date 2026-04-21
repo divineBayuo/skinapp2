@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "895445219165",
+    "project_id": "skin-ntd",
+    "storage_bucket": "skin-ntd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:895445219165:android:bcada46e6f8c7c87eb5ab4",
+        "android_client_info": {
+          "package_name": "com.example.skinapp2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmX5Elc5dcgoEgar1Bs5Ld9oiA7bKeJO4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
