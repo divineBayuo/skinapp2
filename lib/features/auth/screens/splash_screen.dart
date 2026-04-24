@@ -3,16 +3,23 @@
 // -----------------------
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+//import 'package:go_router/go_router.dart';
+import 'package:skinapp2/core/theme/app_theme.dart';
+//import 'package:skinapp2/features/auth/providers/auth_provider.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+  late Animation<double> _pulse;
+
   @override
   void initState() {
     super.initState();
@@ -22,13 +29,38 @@ class _SplashScreenState extends State<SplashScreen> {
         statusBarIconBrightness: Brightness.light,
       ),
     );
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) context.go('/onboarding');
-    });
+
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+
+    _pulse = Tween<double>(
+      begin: 0.85,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Listen to auth state
+    // navigation automatically
+    /* ref.listen<AuthState>(authProvider, (_, next) {
+      if (!next.initialising) {
+        if (next.isAuthenticated) {
+          context.go('/home');
+        } else {
+          context.go('/onboarding');
+        }
+      }
+    }); */
+
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
@@ -47,47 +79,51 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
           ),
-          // Glowing orb effect
+          // Pulsing orb effect
           Center(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 280,
-                  height: 280,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        const Color(0xFF00D4FF).withOpacity(0.15),
-                        Colors.transparent,
-                      ],
+            child: AnimatedBuilder(
+              animation: _pulse,
+              builder: (_, __) => Stack(
+                alignment: Alignment.center,
+                children: [
+                  Transform.scale(
+                    scale: _pulse.value,
+                    child: Container(
+                      width: 280,
+                      height: 280,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            const Color(0xFF00D4FF).withOpacity(0.13),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                Container(
-                  width: 160,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        const Color(0xFF00D4FF).withOpacity(0.35),
-                        const Color(0xFF0080FF).withOpacity(0.1),
-                        Colors.transparent,
-                      ],
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.teal.withOpacity(0.12),
+                      border: Border.all(
+                        color: AppColors.teal.withOpacity(0.3),
+                        width: 2,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.biotech_rounded,
+                      size: 52,
+                      color: Color(0xFF7FECDC),
                     ),
                   ),
-                ),
-                const Icon(
-                  Icons.biotech_rounded,
-                  size: 72,
-                  color: Color(0xFF7FECDC),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-          // Logo at bottom
+          // App name and loader
           Positioned(
             bottom: 60,
             left: 0,

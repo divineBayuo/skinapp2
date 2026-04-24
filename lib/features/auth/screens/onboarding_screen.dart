@@ -43,11 +43,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           // DNA visual (particle glow)
           Positioned(
-            top: 60,
+             top: 0,
             left: 0,
-            bottom: 0,
+            bottom: 200, 
             child: SizedBox(
-              height: MediaQuery.of(context).size.height * 0.52,
+              //height: MediaQuery.of(context).size.height * 0.52,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -83,11 +83,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       size: 80,
                       color: Color(0xFF5CD8F0),
                     ),
-                  ),
+                  ), 
                 ],
               ),
             ),
           ),
+
+          SizedBox(height: MediaQuery.of(context).size.height * 0.4),
+           
           // Bottom content
           Positioned(
             bottom: 0,

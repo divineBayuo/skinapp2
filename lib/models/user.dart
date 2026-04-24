@@ -29,7 +29,7 @@ extension AccessRoleX on AccessRole {
   bool get canDiagnose => level >= 2;
   bool get canExport => level >= 3;
   bool get canViewTimestamps => level >= 3;
-  bool get canManageData => level >= 3; // manage type
+  bool get canManageData => level >= 2; // manage type
   bool get canViewRawLocation => level >= 2; // GPS coords
 }
 
@@ -40,6 +40,7 @@ class AppUser {
   final AccessRole role;
   final String? facilityName;
   final DateTime createdAt;
+  final bool isActive;
 
   const AppUser({
     required this.id,
@@ -48,18 +49,22 @@ class AppUser {
     required this.role,
     this.facilityName,
     required this.createdAt,
+    this.isActive = true,
   });
 
+  /// Constructs an AppUser from a Firestore document map.
+  /// Call as: AppUser.fromMap({'id': uid, ...doc.data()!})
   factory AppUser.fromMap(Map<String, dynamic> m) => AppUser(
-    id: m['id'],
-    fullName: m['fullName'],
-    email: m['email'],
+    id: m['id'] as String,
+    fullName: m['fullName'] as String,
+    email: m['email'] as String,
     role: AccessRole.values.firstWhere(
-      (r) => r.name == m['role'],
+      (r) => r.name == (m['role'] as String),
       orElse: () => AccessRole.collector,
     ),
-    facilityName: m['facilityName'],
-    createdAt: DateTime.parse(m['createdAt']),
+    facilityName: m['facilityName'] as String?,
+    createdAt: DateTime.parse(m['createdAt'] as String),
+    isActive: (m['isActive'] as bool?) ?? true,
   );
 
   Map<String, dynamic> toMap() => {
@@ -69,5 +74,23 @@ class AppUser {
     'role': role.name,
     'facilityName': facilityName,
     'createdAt': createdAt.toIso8601String(),
+    'isActive': isActive,
   };
+
+  // Return initials from the full name
+  String get initials {
+    final parts = fullName
+        .trim()
+        .split(' ')
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+
+  // Returns first name only
+  String get firstName {
+    return fullName.trim().split(' ').first;
+  }
 }

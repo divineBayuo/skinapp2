@@ -1,60 +1,29 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:skinapp2/core/router/app_router.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
-import 'package:skinapp2/features/auth/screens/home_screen.dart';
-import 'package:skinapp2/features/auth/screens/login_screen.dart';
-import 'package:skinapp2/features/auth/screens/onboarding_screen.dart';
-import 'package:skinapp2/features/auth/screens/splash_screen.dart';
-import 'package:skinapp2/models/user.dart';
+import 'package:skinapp2/firebase_options.dart';
 
-GoRouter createRouter(AppUser? user) {
-  return GoRouter(
-    initialLocation: '/splash',
-    redirect: (context, state) {
-      final authed = user != null;
-      final onAuth =
-          state.matchedLocation == '/splash' ||
-          state.matchedLocation == '/onboarding' ||
-          state.matchedLocation == '/login';
-      if (!authed && !onAuth) return '/login';
-      if (authed && state.matchedLocation == '/login') return '/home';
-      return null;
-    },
-    routes: [
-      GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
-      GoRoute(
-        path: '/onboarding',
-        builder: (_, __) => const OnboardingScreen(),
-      ),
-      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(
-        path: '/home',
-        builder: (_, __) =>
-            HomeScreen(role: user?.role ?? AccessRole.collector),
-      ),
-    ],
-  );
-}
-
-// main
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const SkinNtdApp());
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  runApp(const ProviderScope(child: SkinNtdApp()));
 }
 
-class SkinNtdApp extends StatelessWidget {
+class SkinNtdApp extends ConsumerWidget {
   const SkinNtdApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Replace with riverpod authprovider
-    // using null for unathenticated state (will redirect to /splash -> /login)
-    const AppUser? currentUser = null;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
       title: 'SKiN NTD',
       theme: AppTheme.light,
-      routerConfig: createRouter(currentUser),
+      routerConfig: router,
       debugShowCheckedModeBanner: false,
     );
   }

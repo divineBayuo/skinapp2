@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
+import 'package:skinapp2/features/auth/providers/auth_provider.dart';
 import 'package:skinapp2/features/auth/screens/add_patient_screen.dart';
 import 'package:skinapp2/features/auth/screens/manage_data_screen.dart';
 import 'package:skinapp2/features/auth/screens/view_data_screen.dart';
@@ -19,15 +21,15 @@ import 'package:skinapp2/shared/widgets/role_badge.dart';
 // Tab 3 = Manage data
 // --------------------------------------------
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   final AccessRole role;
   const HomeScreen({super.key, required this.role});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _tab = 0;
   late final List<Widget> _pages;
 
@@ -58,13 +60,10 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.bgLight,
       body: IndexedStack(index: _tab, children: _pages),
       extendBody: true,
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.only(bottom: 0),
-        child: SkinNavBar(
-          currentIndex: _tab,
-          onTap: (i) => setState(() => _tab = i),
-          role: widget.role,
-        ),
+      bottomNavigationBar: SkinNavBar(
+        currentIndex: _tab,
+        onTap: (i) => setState(() => _tab = i),
+        role: widget.role,
       ),
     );
   }
@@ -73,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
 // -----------------------------------------------
 // home tab - welcome + date/time card + ntd info
 // -----------------------------------------------
-class _HomeTab extends StatelessWidget {
+class _HomeTab extends ConsumerWidget {
   final AccessRole role;
   const _HomeTab({required this.role});
 
@@ -97,8 +96,19 @@ class _HomeTab extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
+    // pull the real user from authState
+    final user = ref.watch(currentUserProvider);
+    final firstName = user?.fullName.split(' ').first ?? 'User';
+    final initials = user != null
+        ? user.fullName
+              .split(' ')
+              .where((p) => p.isNotEmpty)
+              .take(2)
+              .map((p) => p[0].toUpperCase())
+              .join()
+        : '??';
 
     return SafeArea(
       bottom: false,
@@ -114,18 +124,18 @@ class _HomeTab extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Welcome!', style: t.displaySmall),
+                    Text('Welcome, $firstName!', style: t.displaySmall),
                     const SizedBox(height: 2),
                     RoleBadge(role: role),
                   ],
                 ),
                 GestureDetector(
-                  onTap: () {}, // profile
+                  onTap: () => _showProfileMenu(context, ref), // profile
                   child: CircleAvatar(
                     radius: 22,
                     backgroundColor: AppColors.navy,
-                    child: const Text(
-                      'AK',
+                    child: Text(
+                      initials,
                       style: TextStyle(
                         fontFamily: 'Nunito',
                         fontSize: 13,
@@ -151,6 +161,7 @@ class _HomeTab extends StatelessWidget {
             SizedBox(
               height: 170,
               child: ListView.separated(
+                scrollDirection: Axis.horizontal,
                 itemBuilder: (ctx, i) {
                   final info = _ntdInfo[i];
                   return SizedBox(
@@ -206,8 +217,138 @@ class _HomeTab extends StatelessWidget {
                 accent: AppColors.roleResearcher,
               ),
             ],
+
+            // facilityName if available
+            if (user?.facilityName != null) ...[
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.bgWhite,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.local_hospital_outlined,
+                      size: 16,
+                      color: AppColors.textMid,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      user!.facilityName!,
+                      style: const TextStyle(
+                        fontFamily: 'Nunito',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textMid,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  void _showProfileMenu(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ProfileSheet(ref: ref),
+    );
+  }
+}
+
+// ---- Profile bottom sheet with SignOut--------
+class _ProfileSheet extends StatelessWidget {
+  final WidgetRef ref;
+  const _ProfileSheet({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = ref.read(currentUserProvider);
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.bgWhite,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.fieldBg,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          CircleAvatar(
+            radius: 32,
+            backgroundColor: AppColors.navy,
+            child: Text(
+              user?.fullName
+                      .split(' ')
+                      .where((p) => p.isNotEmpty)
+                      .take(2)
+                      .map((p) => p[0].toUpperCase())
+                      .join() ??
+                  '??',
+              style: const TextStyle(
+                fontFamily: 'Nunito',
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppColors.teal,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            user?.fullName ?? '',
+            style: const TextStyle(
+              fontFamily: 'Nunito',
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: AppColors.textNavy,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            user?.email ?? '',
+            style: const TextStyle(
+              fontFamily: 'Nunito',
+              fontSize: 13,
+              color: AppColors.textMid,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (user != null) RoleBadge(role: user.role),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              label: const Text('Sign Out'),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await ref.read(authProvider.notifier).logout();
+                // Router redirects automatically to onboarding
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
