@@ -243,11 +243,12 @@ class __LoginTabState extends ConsumerState<_LoginTab> {
               controller: _passCtrl,
               hint: 'Enter your password',
               textInputAction: TextInputAction.done,
+              obscureText: _obscure,
               prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
               suffixIcon: IconButton(
                 onPressed: () => setState(() => _obscure = !_obscure),
                 icon: Icon(
-                  _obscure
+                  _obscure                              
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
                   size: 18,
@@ -506,6 +507,7 @@ class __SignUpTabState extends ConsumerState<_SignUpTab> {
               controller: _passCtrl,
               hint: 'Min. 8 characters',
               textInputAction: TextInputAction.next,
+              obscureText: _obscurePass,
               prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
               suffixIcon: IconButton(
                 onPressed: () => setState(() => _obscurePass = !_obscurePass),
@@ -585,6 +587,7 @@ class __SignUpTabState extends ConsumerState<_SignUpTab> {
               controller: _confirmCtrl,
               hint: 'Re-enter your password',
               textInputAction: TextInputAction.done,
+              obscureText: _obscureConf,
               prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
               suffixIcon: IconButton(
                 onPressed: () => setState(() => _obscureConf = !_obscureConf),

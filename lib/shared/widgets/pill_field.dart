@@ -17,6 +17,8 @@ class PillField extends StatelessWidget {
   final int? maxLines;
   final TextInputAction? textInputAction;
   final bool enabled;
+  final bool obscureText;
+  final ValueChanged<String>? onChanged;
 
   const PillField({
     super.key,
@@ -32,6 +34,8 @@ class PillField extends StatelessWidget {
     this.maxLines = 1,
     this.textInputAction,
     this.enabled = true,
+    this.obscureText = false,
+    this.onChanged,
   });
 
   @override
@@ -57,6 +61,8 @@ class PillField extends StatelessWidget {
         suffixIcon: suffixIcon,
         prefixIcon: prefixIcon,
       ),
+      obscureText: obscureText,
+      onChanged: onChanged,
     );
   }
 }

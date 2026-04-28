@@ -1,6 +1,7 @@
 // -- Auth state ---------
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skinapp2/models/user.dart';
 
@@ -37,37 +38,48 @@ class AuthState {
 }
 
 // -- Auth notifier --------
-class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier() : super(const AuthState()) {
+class AuthNotifier extends Notifier<AuthState> {
+  /* AuthNotifier() : super(const AuthState()) {
     _restore();
-  }
+  } */
 
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
 
+  @override
+  AuthState build() {
+    // build() is the Riverpod 3.x equivalent of the constructor
+    // Schedule _restore() as a microtask so build() returns the initial
+    // state immediately, then the async restore updates state afterwards
+    Future.microtask(_restore);
+    return const AuthState(); // initialising true
+  }
+
   // --Cold-start: check if a Firebase session already exists
   Future<void> _restore() async {
-    print('🔄 _restore() started');
+    debugPrint('🔄 _restore() started');
     try {
       final firebaseUser = _auth.currentUser;
-      print('👤 Firebase user: $firebaseUser');
+      debugPrint('👤 Firebase user: $firebaseUser');
 
       if (firebaseUser != null) {
-        print('📄 Fetching Firestore doc for ${firebaseUser.uid}');
+        debugPrint('📄 Fetching Firestore doc for ${firebaseUser.uid}');
         final appUser = await _fetchUserDoc(firebaseUser.uid);
-        print('✅ User doc fetched: ${appUser.fullName}');
+        debugPrint('✅ User doc fetched: ${appUser.fullName}');
         state = state.copyWith(user: appUser, initialising: false);
       } else {
-        print('⚪ No current user — setting initialising: false');
+        debugPrint('⚪ No current user — setting initialising: false');
         state = state.copyWith(initialising: false);
       }
     } catch (e, stack) {
-      print('❌ _restore() error: $e');
-      print('📍 Stack: $stack');
+      debugPrint('❌ _restore() error: $e');
+      debugPrint('📍 Stack: $stack');
       // If anything fails (e.g. no network), treat as logged out
       state = state.copyWith(initialising: false);
     }
-    print('🏁 _restore() done — initialising is now: ${state.initialising}');
+    debugPrint(
+      '🏁 _restore() done — initialising is now: ${state.initialising}',
+    );
   }
 
   // --- fetch /users/{uid} doc from Firestoreuser
@@ -92,6 +104,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(loading: true, clearError: true);
     try {
       final taggedEmail = _tagEmail(email, role);
+      debugPrint('Signing up: $taggedEmail');
 
       // 1. Create Firebase auth account with tagged email
       final cred = await _auth.createUserWithEmailAndPassword(
@@ -102,8 +115,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // 2. Set display name
       await cred.user!.updateDisplayName(fullName);
 
+      // sendEmailVerification can fail on web during local dev
+      // Firebase blocks unverified domains, so wrap so it never crashes
+      try {
+        await cred.user!.sendEmailVerification();
+        debugPrint('Verification email sent');
+      } catch (e) {
+        debugPrint('sendEmailVerification skipped: e');
+      }
+
       // 3. Send email verification
-      await cred.user!.sendEmailVerification();
+      // await cred.user!.sendEmailVerification();
 
       // 4. Write user doc to Firestore
       final now = DateTime.now();
@@ -117,21 +139,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
         'isActive': true,
       });
 
-      final appUser = AppUser(
-        id: cred.user!.uid,
-        fullName: fullName,
-        email: email,
-        role: role,
-        facilityName: facilityName,
-        createdAt: now,
+      debugPrint('Sign up success for $taggedEmail');
+      state = state.copyWith(
+        loading: false,
+        user: AppUser(
+          id: cred.user!.uid,
+          fullName: fullName,
+          email: email,
+          role: role,
+          facilityName: facilityName,
+          createdAt: now,
+        ),
       );
-
-      state = state.copyWith(user: appUser, loading: false);
       return true;
     } on FirebaseAuthException catch (e) {
+      debugPrint('SignUp FirebaseAuthException: ${e.code}');
       state = state.copyWith(loading: false, error: _mapError(e.code));
       return false;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SignUp unknown error: $e');
       state = state.copyWith(
         loading: false,
         error: 'Sign up failed. Please try again.',
@@ -150,6 +176,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(loading: true, clearError: true);
     try {
       final taggedEmail = _tagEmail(email, role);
+      debugPrint('Logging in: $taggedEmail');
 
       final cred = await _auth.signInWithEmailAndPassword(
         email: taggedEmail,
@@ -157,12 +184,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       final appUser = await _fetchUserDoc(cred.user!.uid);
+      debugPrint('Login success: ${appUser.fullName}');
       state = state.copyWith(user: appUser, loading: false);
       return true;
     } on FirebaseAuthException catch (e) {
+      debugPrint('Login FirebaseAuthException: ${e.code}');
       state = state.copyWith(loading: false, error: _mapError(e.code));
       return false;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Login unknown error: $e');
       state = state.copyWith(
         loading: false,
         error: 'Sign in failed. Check your details and try again.',
@@ -191,6 +221,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logout() async {
     await _auth.signOut();
     // Keep initialising: false so router doesn't go back to splash
+    debugPrint('Logged out');
     state = const AuthState(initialising: false);
   }
 
@@ -229,8 +260,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 // -- Providers --------
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-  (ref) => AuthNotifier(),
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
 );
 
 final currentUserProvider = Provider<AppUser?>((ref) {
