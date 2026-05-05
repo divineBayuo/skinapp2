@@ -3,6 +3,7 @@
 // ----------------------------
 import 'package:flutter/material.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
+import 'package:skinapp2/shared/widgets/live_clock.dart';
 
 class DatetimeWelcomeCard extends StatelessWidget {
   const DatetimeWelcomeCard({super.key});
@@ -33,8 +34,8 @@ class DatetimeWelcomeCard extends StatelessWidget {
       'Saturday',
       'Sunday',
     ];
-    final hour = now.hour.toString().padLeft(2, '0');
-    final min = now.minute.toString().padLeft(2, '0');
+    //final hour = now.hour.toString().padLeft(2, '0');
+    //final min = now.minute.toString().padLeft(2, '0');
     final month = months[now.month - 1];
     final day = days[now.weekday - 1];
 
@@ -48,7 +49,7 @@ class DatetimeWelcomeCard extends StatelessWidget {
         children: [
           // Time column
           Expanded(
-            child: Column(
+            child: LiveClock() /* Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -73,7 +74,7 @@ class DatetimeWelcomeCard extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
+            ), */
           ),
           // Date Column
           Column(
