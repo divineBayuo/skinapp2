@@ -28,5 +28,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Used to photograph skin lesions</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Used to select lesion photos</string>
 </dict>
 </plist>

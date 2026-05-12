@@ -44,7 +44,7 @@ android {
 
 dependencies {
     // Google services plugin reads google-services.json
-    implementation platform('com.google.firebase:firebase-bom:33.0.0')
+    implementation(platform("com.google.firebase:firebase-bom:33.0.0"))
 }
 
 flutter {

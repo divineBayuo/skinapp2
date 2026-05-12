@@ -6,14 +6,124 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
 
-class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+class _SlideToStart extends StatefulWidget {
+  final VoidCallback onSlideComplete;
+  const _SlideToStart({required this.onSlideComplete});
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  State<_SlideToStart> createState() => __SlideToStartState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class __SlideToStartState extends State<_SlideToStart>
+    with SingleTickerProviderStateMixin {
+  double _dragPos = 0;
+  bool _completed = false;
+  late double _trackWidth;
+
+  static const double _thumbSize = 52;
+  static const double _trackHeight = 60;
+  static const double _threshold = 0.85;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        _trackWidth = constraints.maxWidth;
+        final maxDrag = _trackWidth - _thumbSize - 8;
+        final progress = (_dragPos / maxDrag).clamp(0.0, 1.0);
+
+        return GestureDetector(
+          onHorizontalDragUpdate: _completed
+              ? null
+              : (d) {
+                  setState(() {
+                    _dragPos = (_dragPos + d.delta.dx).clamp(0, maxDrag);
+                  });
+                  if (_dragPos / maxDrag >= _threshold && !_completed) {
+                    setState(() => _completed = true);
+                    HapticFeedback.mediumImpact();
+                    Future.delayed(
+                      const Duration(milliseconds: 300),
+                      widget.onSlideComplete,
+                    );
+                  }
+                },
+          onHorizontalDragEnd: _completed
+              ? null
+              : (_) {
+                  setState(() => _dragPos = 0);
+                },
+          child: Container(
+            height: _trackHeight,
+            decoration: BoxDecoration(
+              color: AppColors.teal,
+              borderRadius: BorderRadius.circular(40),
+            ),
+            child: Stack(
+              alignment: Alignment.centerLeft,
+              children: [
+                // fading as thumb moves right
+                Center(
+                  child: AnimatedOpacity(
+                    opacity: (1 - progress * 2).clamp(0.0, 1.0),
+                    duration: Duration.zero,
+                    child: const Text(
+                      'Slide to get started',
+                      style: TextStyle(
+                        fontFamily: 'Nunito',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.navy,
+                      ),
+                    ),
+                  ),
+                ),
+                // draggable thumb
+                AnimatedPositioned(
+                  duration: _completed
+                      ? const Duration(milliseconds: 250)
+                      : Duration.zero,
+                  curve: Curves.easeOut,
+                  left: _completed
+                      ? _trackWidth - _thumbSize - 4
+                      : _dragPos + 4,
+                  child: Container(
+                    width: _thumbSize,
+                    height: _thumbSize,
+                    decoration: const BoxDecoration(
+                      color: AppColors.navy,
+                      shape: BoxShape.circle,
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: _completed
+                          ? const Icon(
+                              Icons.check_rounded,
+                              key: ValueKey('check'),
+                              color: AppColors.teal,
+                              size: 22,
+                            )
+                          : const Icon(
+                              Icons.arrow_forward_rounded,
+                              key: ValueKey('arrow'),
+                              color: AppColors.teal,
+                              size: 22,
+                            ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class OnboardingScreen extends StatelessWidget {
+  const OnboardingScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(
@@ -43,9 +153,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           // DNA visual (particle glow)
           Positioned(
-             top: 0,
+            top: 0,
             left: 0,
-            bottom: 200, 
+            bottom: 200,
             child: SizedBox(
               //height: MediaQuery.of(context).size.height * 0.52,
               child: Stack(
@@ -83,14 +193,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       size: 80,
                       color: Color(0xFF5CD8F0),
                     ),
-                  ), 
+                  ),
                 ],
               ),
             ),
           ),
 
           SizedBox(height: MediaQuery.of(context).size.height * 0.4),
-           
+
           // Bottom content
           Positioned(
             bottom: 0,
@@ -124,7 +234,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   const SizedBox(height: 36),
                   // Get started!
-                  GestureDetector(
+                  /* GestureDetector(
                     onTap: () => context.go('/login'),
                     child: Container(
                       height: 60,
@@ -164,7 +274,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ],
                       ),
                     ),
-                  ),
+                  ), */
+                  _SlideToStart(onSlideComplete: () =>context.go('/login'))
                 ],
               ),
             ),

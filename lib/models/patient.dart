@@ -120,23 +120,23 @@ class PatientRecord {
   }
 
   factory PatientRecord.fromMap(Map<String, dynamic> m) => PatientRecord(
-    id: m['id'],
-    idNumber: m['idNumber'],
-    locationCoords: m['locationCoords'],
-    fullName: m['fullName'],
-    dateOfBirth: DateTime.parse(m['dateOfBirth']),
-    phone: m['phone'],
-    sex: m['sex'],
-    emergencyName: m['emergencyName'],
-    emergencyContact: m['emergencyContact'],
-    photoUrls: List<String>.from(m['photoUrls'] ?? []),
-    clinicalNotes: m['clinicalNotes'] ?? '',
-    collectorId: m['collectorId'],
-    facilityName: m['facilityName'],
-    collectedAt: DateTime.parse(m['collectedAt']),
-    updatedAt: DateTime.parse(m['updatedAt']),
+    id: m['id'] as String? ?? '',
+    idNumber: m['idNumber'] as String? ?? '',
+    locationCoords: m['locationCoords'] as String? ?? '',
+    fullName: m['fullName'] as String? ?? '',
+    dateOfBirth: DateTime.parse(m['dateOfBirth'] as String),
+    phone: m['phone'] as String? ?? '',
+    sex: m['sex'] as String? ?? '',
+    emergencyName: m['emergencyName'] as String? ?? '',
+    emergencyContact: m['emergencyContact'] as String? ?? '',
+    photoUrls: (m['photoUrls'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [],
+    clinicalNotes: m['clinicalNotes'] as String? ?? '',
+    collectorId: m['collectorId'] as String? ?? '',
+    facilityName: m['facilityName'] as String? ?? '',
+    collectedAt: DateTime.parse(m['collectedAt'] as String),
+    updatedAt: DateTime.parse(m['updatedAt'] as String),
     diagnosis: m['diagnosis'] != null
-        ? Diagnosis.fromMap(m['diagnosis'])
+        ? Diagnosis.fromMap(m['diagnosis'] as Map<String, dynamic>)
         : null,
   );
 
