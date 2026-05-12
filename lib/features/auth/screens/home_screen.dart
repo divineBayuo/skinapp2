@@ -163,11 +163,7 @@ class _HomeTab extends ConsumerWidget {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemBuilder: (ctx, i) {
-                  final info = _ntdInfo[i];
-                  return SizedBox(
-                    width: 260,
-                    child: NtdInfoCard(type: info.type, description: info.desc),
-                  );
+                  return SizedBox(width: 260, child: NtdInfoCardList());
                 },
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemCount: _ntdInfo.length,

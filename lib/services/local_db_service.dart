@@ -22,16 +22,14 @@ class LocalDbService {
     return openDatabase(
       path,
       version: 1,
-      onCreate: (db, _) async {
-        await db.execute('''
+      onCreate: (db, _) => db.execute('''
                 CREATE TABLE patients (
                     id TEXT PRIMARY KEY,
                     data TEXT NOT NULL,
                     synced INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL
                 )
-            ''');
-      },
+            '''),
     );
   }
 
@@ -62,7 +60,7 @@ class LocalDbService {
         result.add(PatientRecord.fromMap(map));
       } catch (e) {
         // skip corrupt rows and avoid crash
-        debugPrint('LocalDbService: skipping corruppt row ${row['id']}: $e');
+        debugPrint('LocalDbService: skipping corrupt row ${row['id']}: $e');
       }
     }
     return result;

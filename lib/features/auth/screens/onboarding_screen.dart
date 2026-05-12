@@ -11,10 +11,10 @@ class _SlideToStart extends StatefulWidget {
   const _SlideToStart({required this.onSlideComplete});
 
   @override
-  State<_SlideToStart> createState() => __SlideToStartState();
+  State<_SlideToStart> createState() => _SlideToStartState();
 }
 
-class __SlideToStartState extends State<_SlideToStart>
+class _SlideToStartState extends State<_SlideToStart>
     with SingleTickerProviderStateMixin {
   double _dragPos = 0;
   bool _completed = false;
@@ -121,6 +121,7 @@ class __SlideToStartState extends State<_SlideToStart>
   }
 }
 
+// --- Onboarding screen ------------------------
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
 
@@ -275,7 +276,7 @@ class OnboardingScreen extends StatelessWidget {
                       ),
                     ),
                   ), */
-                  _SlideToStart(onSlideComplete: () =>context.go('/login'))
+                  _SlideToStart(onSlideComplete: () => context.go('/login')),
                 ],
               ),
             ),
