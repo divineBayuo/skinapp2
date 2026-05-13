@@ -536,11 +536,13 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
     );
 
     // save via provider (handles offline + online)
-    final success = await ref.read(patientProvider.notifier).addRecord(record);
+    final success = await ref
+        .read(patientProvider(widget.role).notifier)
+        .addRecord(record);
 
     if (mounted) {
       setState(() => _submitting = false);
-      final online = ref.read(isOnlineProvider);
+      final online = ref.read(isOnlineProvider(widget.role));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -550,7 +552,9 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
                       : 'Saved offline - will sync when reconnected.'
                 : 'Failed to save record.',
           ),
-          backgroundColor: success ? AppColors.success : Colors.redAccent,
+          backgroundColor: success
+              ? const Color.fromARGB(255, 3, 5, 4)
+              : Colors.redAccent,
         ),
       );
       if (success) _resetForm();
@@ -596,7 +600,7 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final online = ref.watch(isOnlineProvider);
+    final online = ref.read(isOnlineProvider(widget.role));
 
     return SafeArea(
       bottom: false,

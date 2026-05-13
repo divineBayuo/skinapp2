@@ -31,6 +31,10 @@ extension AccessRoleX on AccessRole {
   bool get canViewTimestamps => level >= 3;
   bool get canManageData => level >= 2; // manage type
   bool get canViewRawLocation => level >= 2; // GPS coords
+
+  bool get isCollector => this == AccessRole.collector;
+  bool get isPhysician => this == AccessRole.physician;
+  bool get isResearcher => this == AccessRole.researcher;
 }
 
 class AppUser {

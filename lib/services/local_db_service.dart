@@ -33,6 +33,17 @@ class LocalDbService {
     );
   }
 
+  PatientRecord? _tryParse(Map<String, Object?> row) {
+    try {
+      return PatientRecord.fromMap(
+        jsonDecode(row['data'] as String) as Map<String, dynamic>,
+      );
+    } catch (e) {
+      debugPrint('LocalDbService: corrupt row ${row['id']}: $e');
+      return null;
+    }
+  }
+
   // --- WRITE ----------------------
   Future<void> upsertPatient(PatientRecord p, {bool synced = false}) async {
     final d = await db;
@@ -53,7 +64,7 @@ class LocalDbService {
   Future<List<PatientRecord>> getAllPatients() async {
     final d = await db;
     final rows = await d.query('patients', orderBy: 'created_at DESC');
-    final result = <PatientRecord>[];
+    /* final result = <PatientRecord>[];
     for (final row in rows) {
       try {
         final map = jsonDecode(row['data'] as String) as Map<String, dynamic>;
@@ -63,7 +74,18 @@ class LocalDbService {
         debugPrint('LocalDbService: skipping corrupt row ${row['id']}: $e');
       }
     }
-    return result;
+    return result; */
+    return rows.map(_tryParse).whereType<PatientRecord>().toList();
+  }
+
+  Future<List<PatientRecord>> getSyncedPatients() async {
+    final d = await db;
+    final rows = await d.query(
+      'patients',
+      where: 'synced=1',
+      orderBy: 'created_at DESC',
+    );
+    return rows.map(_tryParse).whereType<PatientRecord>().toList();
   }
 
   Future<List<PatientRecord>> getUnsynced() async {
@@ -73,13 +95,14 @@ class LocalDbService {
       where: 'synced = 0',
       orderBy: 'created_at ASC',
     );
-    final result = <PatientRecord>[];
+    /* final result = <PatientRecord>[];
     for (final row in rows) {
       try {
         final map = jsonEncode(row['data'] as String) as Map<String, dynamic>;
         result.add(PatientRecord.fromMap(map));
       } catch (_) {}
     }
-    return result;
+    return result; */
+    return rows.map(_tryParse).whereType<PatientRecord>().toList();
   }
 }
