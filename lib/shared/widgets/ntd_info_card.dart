@@ -170,6 +170,135 @@ final List<NtdInfo> kNtdInfoList = [
   ),
 ];
 
+// full-detail bottom sheet
+void showNtdDetail(BuildContext context, NtdInfo ntd) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      expand: false,
+      builder: (_, scrollCtrl) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // drag handle
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 4),
+            // scrollable content
+            Expanded(
+              child: ListView(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
+                children: [
+                  // Pathogen chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: ntd.chipColor,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      ntd.pathogen,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: ntd.chipText,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Name
+                  Text(
+                    ntd.name,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Aka
+                  Text(
+                    ntd.aka,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontStyle: FontStyle.italic,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Divider
+                  Divider(color: Colors.grey.shade200),
+                  const SizedBox(height: 16),
+
+                  // full description
+                  Text(
+                    ntd.description,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.65,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Tags
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ntd.tags
+                        .map(
+                          (tag) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ntd.chipColor.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              tag,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: ntd.chipText,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 // --- Card widget -------------------------------------
 class NtdInfoCard extends StatelessWidget {
   final NtdInfo ntd;
@@ -177,107 +306,133 @@ class NtdInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-
-    return Container(
-      width: 220,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withOpacity(0.12), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: ntd.chipColor,
-              borderRadius: BorderRadius.circular(20),
+    return GestureDetector(
+      onTap: () => showNtdDetail(context, ntd),
+      child: Container(
+        width: 200,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.withOpacity(0.12), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            child: Text(
-              ntd.pathogen,
-              style: TextStyle(
-                fontFamily: 'Nunito',
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: ntd.chipText,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // name
-          Text(
-            ntd.name,
-            style: t.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 2),
-
-          // aka
-          Text(
-            ntd.aka,
-            style: TextStyle(
-              fontSize: 11,
-              fontStyle: FontStyle.italic,
-              color: Colors.grey.shade500,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Description
-          Expanded(
-            child: Text(
-              ntd.description,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.5,
-                color: Colors.grey.shade600,
-              ),
-              overflow: TextOverflow.fade,
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Tags
-          Wrap(
-            spacing: 5,
-            runSpacing: 5,
-            children: ntd.tags
-                .map(
-                  (tag) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.fieldBg,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      tag,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
+          ],
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // pathogen chip
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: ntd.chipColor,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  ntd.pathogen,
+                  style: TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: ntd.chipText,
                   ),
-                )
-                .toList(),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // name
+              Text(
+                ntd.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 2),
+
+              // aka
+              Text(
+                ntd.aka,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Description
+              Text(
+                ntd.description,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.5,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // tap hints
+              Row(
+                children: [
+                  Icon(
+                    Icons.touch_app_rounded,
+                    size: 12,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Tap to read more',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+
+              // Tags
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: ntd.tags
+                    .map(
+                      (tag) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.fieldBg,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          tag,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -290,7 +445,7 @@ class NtdInfoCardList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 220,
+      height: 230,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),

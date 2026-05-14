@@ -6,7 +6,7 @@ import 'package:skinapp2/features/auth/providers/auth_provider.dart';
 import 'package:skinapp2/features/auth/screens/add_patient_screen.dart';
 import 'package:skinapp2/features/auth/screens/manage_data_screen.dart';
 import 'package:skinapp2/features/auth/screens/view_data_screen.dart';
-import 'package:skinapp2/models/diagnosis.dart';
+// import 'package:skinapp2/models/diagnosis.dart';
 import 'package:skinapp2/models/user.dart';
 import 'package:skinapp2/shared/widgets/bottom_navbar.dart';
 import 'package:skinapp2/shared/widgets/datetime_welcome_card.dart';
@@ -76,7 +76,7 @@ class _HomeTab extends ConsumerWidget {
   final AccessRole role;
   const _HomeTab({required this.role});
 
-  // Rotating NTD info snippets
+  /*  // Rotating NTD info snippets
   static const _ntdInfo = [
     (
       type: SkinNtdType.buruliUlcer,
@@ -93,7 +93,7 @@ class _HomeTab extends ConsumerWidget {
       desc:
           'A tropical infection of the skin, bones, and joints caused by *Treponemapallidum pertenue*, mostly affecting children.',
     ),
-  ];
+  ]; */
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -158,7 +158,7 @@ class _HomeTab extends ConsumerWidget {
             // NTD info cards in horizontal scroll
             Text('Know Your NTDs', style: t.titleMedium),
             const SizedBox(height: 10),
-            SizedBox(
+            /* SizedBox(
               height: 170,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
@@ -168,7 +168,8 @@ class _HomeTab extends ConsumerWidget {
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemCount: _ntdInfo.length,
               ),
-            ),
+            ), */
+            NtdInfoCardList(),
 
             const SizedBox(height: 24),
 
@@ -209,7 +210,7 @@ class _HomeTab extends ConsumerWidget {
                 icon: Icons.download_rounded,
                 title: 'Export Data',
                 subtitle: 'Download CSV or PDF',
-                onTap: () {},
+                onTap: () {}, // add download function
                 accent: AppColors.roleResearcher,
               ),
             ],

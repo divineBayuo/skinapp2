@@ -1,6 +1,4 @@
-// -----------------------------------
-// MANAGE DATA SCREEN
-// -----------------------------------
+// lib/features/auth/screens/manage_data_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
@@ -26,13 +24,12 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
   final _searchCtrl = TextEditingController();
   DateTime? _selectedDate;
   String? _selectedDateLabel;
-  // List<PatientRecord> _filtered = List.from(kMockPatients);
   late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    // tabs only visible to roles that can distinguish pending/diagnosed
+    // Tabs only shown to roles that can distinguish pending/diagnosed
     _tabController = TabController(
       length: widget.role.canDiagnose ? 3 : 2,
       vsync: this,
@@ -47,7 +44,7 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
     super.dispose();
   }
 
-  // --- filter logic ----------------------------
+  // ── Filter logic ─────────────────────────────────────────────────────────────
   List<PatientRecord> _applyFilters(List<PatientRecord> source) {
     var list = source;
     final q = _searchCtrl.text.toLowerCase();
@@ -118,13 +115,14 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
     _selectedDateLabel = null;
   });
 
+  // ── Export stub ─────────────────────────────────────────────────────────────
   void _onExport() {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Export coming soon.')));
   }
 
-  // manual sync
+  // ── Manual sync ─────────────────────────────────────────────────────────────
   Future<void> _onSync() async {
     await ref.read(patientProvider(widget.role).notifier).syncNow();
     if (mounted) {
@@ -134,7 +132,7 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
     }
   }
 
-  // --- Patient list view ---------------------
+  // ── Patient list view ────────────────────────────────────────────────────────
   Widget _buildList(List<PatientRecord> records) {
     final filtered = _applyFilters(records);
     if (filtered.isEmpty) {
@@ -143,7 +141,6 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
         subtitle: 'Try adjusting your search or date filter.',
       );
     }
-
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 110),
       itemCount: filtered.length,
@@ -173,13 +170,13 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
     final allRecords = state.records;
     final pending = allRecords.where((p) => !p.hasDiagnosis).toList();
     final diagnosed = allRecords.where((p) => p.hasDiagnosis).toList();
-    //final canSave = widget.role.canExport || widget.role.canDiagnose;
 
     return SafeArea(
       bottom: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Header ──────────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             child: Column(
@@ -196,7 +193,7 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
                       children: [
                         Row(
                           children: [
-                            // offline / online badge
+                            // Offline / online badge
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -234,7 +231,7 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // sync button
+                            // Sync button
                             if (online)
                               CircularActionButton(
                                 icon: Icons.sync_rounded,
@@ -252,7 +249,7 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
                               ),
                           ],
                         ),
-                        // Unsynced badge - only shown to collectors
+                        // Unsynced badge — only shown to collectors
                         if (widget.role.isCollector && unsyncedCount > 0) ...[
                           const SizedBox(height: 6),
                           Container(
@@ -315,16 +312,16 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
                   ),
                 ],
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
-                // search + date filter
+                // Search + date filter
                 SearchDateRow(
                   searchCtrl: _searchCtrl,
                   onDateTap: _pickDate,
                   selectedDate: _selectedDateLabel,
                 ),
 
-                // active data chip with clear button
+                // Active date chip with clear button
                 if (_selectedDateLabel != null) ...[
                   const SizedBox(height: 8),
                   GestureDetector(
@@ -388,11 +385,12 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
             ),
           ),
 
-          // --- tab views ----------------
+          // ── Tab views ────────────────────────────────────────────────────────
           Expanded(
             child: state.loading
                 ? const Center(child: CircularProgressIndicator())
                 : TabBarView(
+                    controller: _tabController,
                     children: [
                       _buildList(allRecords),
                       _buildList(pending),

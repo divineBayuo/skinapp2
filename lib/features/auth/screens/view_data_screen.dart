@@ -175,9 +175,16 @@ class _ViewDataScreenState extends ConsumerState<ViewDataScreen> {
                         // Refresh
                         CircularActionButton(
                           icon: Icons.refresh_rounded,
-                          onTap: () => ref
-                              .read(patientProvider(widget.role).notifier)
-                              .syncNow(),
+                          onTap: () {
+                            ref
+                                .read(patientProvider(widget.role).notifier)
+                                .syncNow();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Sync complete.')),
+                              );
+                            }
+                          },
                           size: 42,
                         ),
                       ],
