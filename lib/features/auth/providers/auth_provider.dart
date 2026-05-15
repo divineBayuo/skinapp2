@@ -51,12 +51,30 @@ class AuthNotifier extends Notifier<AuthState> {
     // build() is the Riverpod 3.x equivalent of the constructor
     // Schedule _restore() as a microtask so build() returns the initial
     // state immediately, then the async restore updates state afterwards
-    Future.microtask(_restore);
+    //Future.microtask(_restore);
+    _auth.authStateChanges().listen((firebaseUser) async {
+      if (firebaseUser == null) {
+        state = state.copyWith(clearUser: true, initialising: false);
+        return;
+      }
+
+      try {
+        final appUser = await _fetchUserDoc(firebaseUser.uid);
+
+        state = state.copyWith(
+          user: appUser,
+          initialising: false,
+          clearError: true,
+        );
+      } catch (e) {
+        state = state.copyWith(initialising: false, error: e.toString());
+      }
+    });
     return const AuthState(); // initialising true
   }
 
   // --Cold-start: check if a Firebase session already exists
-  Future<void> _restore() async {
+  /* Future<void> _restore() async {
     debugPrint('🔄 _restore() started');
     try {
       final firebaseUser = _auth.currentUser;
@@ -80,7 +98,7 @@ class AuthNotifier extends Notifier<AuthState> {
     debugPrint(
       '🏁 _restore() done — initialising is now: ${state.initialising}',
     );
-  }
+  } */
 
   // --- fetch /users/{uid} doc from Firestoreuser
   Future<AppUser> _fetchUserDoc(String uid) async {

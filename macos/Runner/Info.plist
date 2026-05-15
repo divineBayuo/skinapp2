@@ -32,5 +32,7 @@
 	<string>Used to photograph skin lesions</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Used to select lesion photos</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Used to record patient collection location</string>
 </dict>
 </plist>

@@ -12,6 +12,7 @@ import 'package:skinapp2/core/theme/app_theme.dart';
 import 'package:skinapp2/features/auth/providers/patient_provider.dart';
 import 'package:skinapp2/models/patient.dart';
 import 'package:skinapp2/models/user.dart';
+import 'package:skinapp2/services/location_service.dart';
 import 'package:skinapp2/shared/widgets/circular_action_btn.dart';
 import 'package:skinapp2/shared/widgets/pill_field.dart';
 
@@ -322,9 +323,28 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
     setState(() => _idCtrl.text = _buildId());
   }
 
-  void _generateLocation() {
+  bool _locating = false;
+
+  Future<void> _generateLocation() async {
     // In production: use geolocator
-    setState(() => _locationCtrl.text = '5.6037168, -0.6914456');
+    // setState(() => _locationCtrl.text = '5.6037168, -0.6914456');
+    setState(() => _locating = true);
+    final coords = await LocationService().getCurrentCoords();
+    setState(() {
+      _locating = false;
+      if (coords != null) {
+        _locationCtrl.text = coords;
+      } else {
+        // show a snackbar, avoid silent fail
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not get location. Check that location services are enabled.',
+            ),
+          ),
+        );
+      }
+    });
   }
 
   // date pickers
@@ -365,7 +385,7 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
+      lastDate: DateTime(DateTime.now().year + 1),
       builder: _datePickerTheme,
     );
     if (picked != null) {
@@ -686,16 +706,25 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
 
               // Auto-generated location
               GestureDetector(
-                onTap: _generateLocation,
+                onTap: _locating ? null : _generateLocation,
                 child: AbsorbPointer(
                   child: PillField(
                     controller: _locationCtrl,
                     hint: 'Location: Tap to generate',
-                    suffixIcon: const Icon(
-                      Icons.my_location_rounded,
-                      size: 16,
-                      color: AppColors.tealDeep,
-                    ),
+                    suffixIcon: _locating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.tealDeep,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.my_location_rounded,
+                            size: 16,
+                            color: AppColors.tealDeep,
+                          ),
                   ),
                 ),
               ),
