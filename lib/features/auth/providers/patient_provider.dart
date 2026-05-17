@@ -81,7 +81,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
       final nowOnline = results.any((r) => r != ConnectivityResult.none);
       state = state.copyWith(online: nowOnline);
       if (nowOnline) {
-        await _sync.syncNow();
+        await _sync.pushUnsynced();
         await _fetchRemote();
         //await _refreshFromLocal();
       }
@@ -207,7 +207,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
   // manual sync trigger
   Future<void> syncNow() async {
     if (!state.online) return;
-    await _sync.syncNow();
+    await _sync.pushUnsynced();
     await _fetchRemote();
     await _refreshFromLocal();
     debugPrint('SyncNow: pushed new records');

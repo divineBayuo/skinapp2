@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/material.dart';
 import 'package:skinapp2/services/firestore_service.dart';
 import 'package:skinapp2/services/local_db_service.dart';
 
@@ -18,7 +19,7 @@ class SyncService {
       final nowOnline = results.any((r) => r != ConnectivityResult.none);
       if (nowOnline && !_online) {
         _online = true;
-        await syncNow();
+        await pushUnsynced();
       } else if (!nowOnline) {
         _online = false;
       }
@@ -27,26 +28,24 @@ class SyncService {
 
   void dispose() => _sub?.cancel();
 
-  Future<void> syncNow() async {
+  // push all unsynced local records to firestore (+photos)
+  // returns number successfully pushed
+  Future<int> pushUnsynced() async {
     final pending = await _local.getUnsynced();
+    if (pending.isEmpty) return 0;
+    int pushed = 0;
     for (final record in pending) {
       try {
-        /* // -- TODO: swap with real Firestore call
-        // await FirebaseFirestore.instance
-        //  .collection('patients')
-        //  .doc(record.id)
-        //  .set(record.toMap());
-        await Future.delayed(
-          const Duration(milliseconds: 100),
-        ); // to be removed after real call */
+        // upsertPatient handles photo upload internally
         await _remote.upsertPatient(record);
         await _local.markSynced(record.id);
-      } catch (_) {
+        pushed++;
+      } catch (e) {
+        debugPrint('SyncService: failed to push ${record.id}: $e');
         // Leave as unsynced; will retry next reconnection
       }
     }
+    debugPrint('SyncService: pushed $pushed/${pending.length} records');
+    return pushed;
   }
-
-  /// Call once after checking connectivity at app start
-  //Future<void> syncNow() => _pushUnsynced();
 }

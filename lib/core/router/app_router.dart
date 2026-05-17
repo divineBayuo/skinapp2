@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skinapp2/features/admin/admin_dashboard.dart';
 import 'package:skinapp2/features/auth/providers/auth_provider.dart';
 import 'package:skinapp2/features/auth/screens/auth_screen.dart';
 import 'package:skinapp2/features/auth/screens/home_screen.dart';
@@ -90,6 +91,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/login', builder: (_, __) => const AuthScreen()),
       GoRoute(path: '/home', builder: (_, __) => const RoleGate()),
+      GoRoute(path: '/admin', builder: (_, __) => const AdminDashboardScreen()),
     ],
   );
 
