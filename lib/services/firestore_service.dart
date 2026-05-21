@@ -81,6 +81,13 @@ class FirestoreService {
     await _patients.doc(patient.id).set(map);
   }
 
+  // call this everytime a new patient record is taken
+  Future<void> incrementRecordCount(String collectorUid) async {
+    await _db.collection('users').doc(collectorUid).update({
+      'recordCount': FieldValue.increment(1),
+    });
+  }
+
   // update diagnosis only
   Future<void> updateDiagnosis(
     String patientId,

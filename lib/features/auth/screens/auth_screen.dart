@@ -248,7 +248,7 @@ class __LoginTabState extends ConsumerState<_LoginTab> {
               suffixIcon: IconButton(
                 onPressed: () => setState(() => _obscure = !_obscure),
                 icon: Icon(
-                  _obscure                              
+                  _obscure
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
                   size: 18,
@@ -455,8 +455,9 @@ class __SignUpTabState extends ConsumerState<_SignUpTab> {
               textInputAction: TextInputAction.next,
               prefixIcon: const Icon(Icons.person_outline_rounded, size: 18),
               validator: (v) {
-                if (v == null || v.trim().isEmpty)
+                if (v == null || v.trim().isEmpty) {
                   return 'Full name is required';
+                }
                 if (v.trim().split(' ').length < 2) {
                   return 'Enter your first and last name';
                 }

@@ -3,6 +3,7 @@
 // ------------------------------------
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
 import 'package:skinapp2/features/auth/providers/patient_provider.dart';
 import 'package:skinapp2/features/auth/screens/patient_detail_screen.dart';
@@ -132,6 +133,37 @@ class _ViewDataScreenState extends ConsumerState<ViewDataScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    InkWell(
+                      onTap: /*  () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AdminDashboardScreen(),
+                        ),
+                      ) */ () {
+                        if (mounted) context.go('/admin');
+                      },
+                      child: Container(
+                        width: 150,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.navy, width: 2),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'Admin? Go to',
+                              style: TextStyle(fontStyle: FontStyle.italic),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Dashboard',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20,),
                     Row(
                       children: [
                         // online badge

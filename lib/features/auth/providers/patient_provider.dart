@@ -1,6 +1,7 @@
 // -- Patient State -----
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -153,6 +154,11 @@ class PatientNotifier extends StateNotifier<PatientState> {
       if (state.online) {
         await _remote.upsertPatient(record);
         await _local.markSynced(record.id);
+        // increment collector's record count in Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(record.collectorId)
+            .update({'recordCount': FieldValue.increment(1)});
         await _refreshFromLocal();
       }
 

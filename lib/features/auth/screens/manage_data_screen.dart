@@ -1,9 +1,16 @@
 // lib/features/auth/screens/manage_data_screen.dart
+import 'dart:io';
+
+import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:share_plus/share_plus.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
 import 'package:skinapp2/features/auth/providers/patient_provider.dart';
 import 'package:skinapp2/features/auth/screens/patient_detail_screen.dart';
+import 'package:skinapp2/models/diagnosis.dart';
 import 'package:skinapp2/models/patient.dart';
 import 'package:skinapp2/models/user.dart';
 import 'package:skinapp2/shared/widgets/circular_action_btn.dart';
@@ -115,11 +122,142 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
     _selectedDateLabel = null;
   });
 
-  // ── Export stub ─────────────────────────────────────────────────────────────
-  void _onExport() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Export coming soon.')));
+  // pdf generator function
+  Future<File> _generatePdf(List<PatientRecord> records) async {
+    final pdf = pw.Document();
+
+    for (final r in records) {
+      pdf.addPage(
+        pw.Page(
+          build: (_) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'Patient Record',
+                style: pw.TextStyle(
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+
+              pw.Text('ID: ${r.idNumber}'),
+              pw.Text('Name: ${r.fullName}'),
+              pw.Text('Sex: ${r.sex}'),
+              pw.Text('DOB: ${r.formattedDob}'),
+              pw.Text('Phone: ${r.phone}'),
+              pw.Text('Emergency: ${r.emergencyName} / ${r.emergencyContact}'),
+              pw.Text('Location: ${r.locationCoords}'),
+              pw.Text('Facility: ${r.facilityName}'),
+              pw.Text('Collected: ${r.formattedTimestamp}'),
+
+              pw.SizedBox(height: 10),
+              pw.Text(
+                'Clinical Notes:',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.Text(r.clinicalNotes),
+              if (r.diagnosis != null) ...[
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'Diagnosis:',
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                ),
+                pw.Text('NTD Type: ${r.diagnosis!.ntdType.label}'),
+                pw.Text('Status: ${r.diagnosis!.status.label}'),
+                pw.Text('Findings: ${r.diagnosis!.clinicalFindings}'),
+                pw.Text('Treatment: ${r.diagnosis!.treatmentPlan}'),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/patients_record.pdf');
+    await file.writeAsBytes(await pdf.save());
+
+    return file;
+  }
+
+  // csv generator
+  Future<File> _generateCsv(List<PatientRecord> records) async {
+    final rows = <List<dynamic>>[
+      // Header row
+      [
+        'ID',
+        'Name',
+        'Sex',
+        'DOB',
+        'Phone',
+        'Emergency Name',
+        'Emergency Contact',
+        'Location',
+        'Facility',
+        'Collected At',
+        'Diagnosis',
+        'NTD Type',
+        'Status',
+        'Findings',
+        'Treatment',
+      ],
+      // Data rows
+      ...records.map(
+        (r) => [
+          r.idNumber,
+          r.fullName,
+          r.sex,
+          r.formattedDob,
+          r.phone,
+          r.emergencyName,
+          r.emergencyContact,
+          r.locationCoords,
+          r.facilityName,
+          r.formattedTimestamp,
+          r.hasDiagnosis ? 'Yes' : 'No',
+          r.diagnosis?.ntdType.label ?? '',
+          r.diagnosis?.status.label ?? '',
+          r.diagnosis?.clinicalFindings ?? '',
+          r.diagnosis?.treatmentPlan ?? '',
+        ],
+      ),
+    ];
+
+    final csvData = const ListToCsvConverter().convert(rows);
+
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/patients_export.csv');
+    await file.writeAsString(csvData);
+
+    return file;
+  }
+
+  // ── Export ─────────────────────────────────────────────────────────────
+  Future<void> _onExport(List<PatientRecord> records) async {
+    if (records.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    try {
+      // generate files
+      final pdfFile = await _generatePdf(records);
+      final csvFile = await _generateCsv(records);
+
+      //share both
+      await Share.shareXFiles([
+        XFile(pdfFile.path),
+        XFile(csvFile.path),
+      ], text: 'Patient Record Export - ${records.length} record(s)');
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+    }
   }
 
   // ── Manual sync ─────────────────────────────────────────────────────────────
@@ -243,7 +381,16 @@ class _ManageDataScreenState extends ConsumerState<ManageDataScreen>
                             if (widget.role.canExport)
                               CircularActionButton(
                                 icon: Icons.save_alt_rounded,
-                                onTap: _onExport,
+                                onTap: () {
+                                  final currentRecords = _applyFilters(
+                                    _tabController.index == 0
+                                        ? allRecords
+                                        : _tabController.index == 1
+                                        ? pending
+                                        : diagnosed,
+                                  );
+                                  _onExport(currentRecords);
+                                },
                                 bgColor: AppColors.saveRed,
                                 size: 42,
                               ),

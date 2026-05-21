@@ -45,6 +45,7 @@ class AppUser {
   final String? facilityName;
   final DateTime createdAt;
   final bool isActive;
+  final int recordCount;
 
   const AppUser({
     required this.id,
@@ -54,6 +55,7 @@ class AppUser {
     this.facilityName,
     required this.createdAt,
     this.isActive = true,
+    this.recordCount = 0
   });
 
   /// Constructs an AppUser from a Firestore document map.
@@ -69,6 +71,7 @@ class AppUser {
     facilityName: m['facilityName'] as String?,
     createdAt: DateTime.parse(m['createdAt'] as String),
     isActive: (m['isActive'] as bool?) ?? true,
+    recordCount: (m['recordCount'] as  int?) ?? 0,
   );
 
   Map<String, dynamic> toMap() => {
@@ -79,6 +82,7 @@ class AppUser {
     'facilityName': facilityName,
     'createdAt': createdAt.toIso8601String(),
     'isActive': isActive,
+    'recordCount': recordCount,
   };
 
   // Return initials from the full name

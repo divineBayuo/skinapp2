@@ -1,10 +1,17 @@
 // models
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:share_plus/share_plus.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
 import 'package:skinapp2/services/firestore_service.dart';
+import 'package:skinapp2/shared/widgets/circular_action_btn.dart';
 import 'package:skinapp2/shared/widgets/live_clock.dart';
 
 class _AppUser {
@@ -73,6 +80,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   late TabController _tabs;
   bool _loading = true;
   String? _error;
+  bool _exportingStats = false;
 
   List<_AppUser> _collectors = [];
   List<_AppUser> _physicians = [];
@@ -140,6 +148,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           bySuspicion[key] = (bySuspicion[key] ?? 0) + 1;
         }
 
+        // lesion types
+        for (final lt in (clinical['lesionTypes'] as List? ?? [])) {
+          final key = lt.toString();
+          byLesionType[key] = (byLesionType[key] ?? 0) + 1;
+        }
+
         // detection mode
         final mode = clinical['modeOfDetection'] as String? ?? 'Unknown';
         byDetection[mode] = (byDetection[mode] ?? 0) + 1;
@@ -168,6 +182,234 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       });
     }
   }
+
+  // export stats pdf
+  Future<void> _exportStatsPdf() async {
+    if (_stats == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No statistics to export yet.')),
+      );
+      return;
+    }
+    setState(() => _exportingStats = true);
+    try {
+      final file = await _buildStatsPdf(_stats!);
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: 'SkinApp - Statistics Report');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _exportingStats = false);
+    }
+  }
+
+  Future<File> _buildStatsPdf(_Stats stats) async {
+    final pdf = pw.Document();
+    final now = DateTime.now();
+    const month = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final date = '${now.day} ${month[now.month - 1]} ${now.year}';
+
+    // helper: section title
+    pw.Widget _title(String text) => pw.Padding(
+      padding: const pw.EdgeInsets.only(top: 16, bottom: 6),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: 11,
+          fontWeight: pw.FontWeight.bold,
+          color: const PdfColor.fromInt(0xFF0D3C6E),
+        ),
+      ),
+    );
+
+    // helper: horizontal bar row
+    pw.Widget _bar(String label, int count, int total) {
+      final pct = total == 0 ? 0.0 : count / total;
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 5),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(label, style: const pw.TextStyle(fontSize: 10)),
+                pw.Text(
+                  '$count',
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 2),
+            pw.Stack(
+              children: [
+                pw.Container(
+                  height: 6,
+                  color: const PdfColor.fromInt(0xFFE8EDF2),
+                ),
+                pw.Container(
+                  height: 6,
+                  width: 400 * pct,
+                  color: const PdfColor.fromInt(0xFF0D3C6E),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    // sort helper
+    List<MapEntry<String, int>> sorted(Map<String, int> m) =>
+        m.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+    final diagRate = stats.total == 0
+        ? '-'
+        : '${(stats.diagnosed / stats.total * 100).round()}%';
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(36),
+        build: (_) => [
+          // header
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'SkinApp - Statistics Report',
+                style: pw.TextStyle(
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                  color: const PdfColor.fromInt(0xFF0D3C6E),
+                ),
+              ),
+              pw.Text(
+                'Generated: $date',
+                style: const pw.TextStyle(fontSize: 10),
+              ),
+            ],
+          ),
+          pw.Divider(),
+          pw.SizedBox(height: 8),
+
+          // summary cards
+          pw.Row(
+            children: [
+              _summaryCard('Total Patients', '${stats.total}'),
+              pw.SizedBox(width: 12),
+              _summaryCard('Diagnosed', '${stats.diagnosed}'),
+              pw.SizedBox(width: 12),
+              _summaryCard('Pending', '${stats.pending}'),
+              pw.SizedBox(width: 12),
+              _summaryCard('Diagnosis Rate', diagRate),
+              pw.SizedBox(width: 12),
+            ],
+          ),
+          pw.SizedBox(height: 16),
+
+          // users summary
+          _title('USER SUMMARY'),
+          pw.Row(
+            children: [
+              _summaryCard('Collectors', '${_collectors.length}'),
+              pw.SizedBox(width: 12),
+              _summaryCard('Physicians', '${_physicians.length}'),
+              pw.SizedBox(width: 12),
+              _summaryCard('Researchers', '${_researchers.length}'),
+              pw.SizedBox(width: 12),
+            ],
+          ),
+
+          // sex distribution
+          _title('SEX DISTRIBUTION'),
+          ...sorted(stats.bySex).map((e) => _bar(e.key, e.value, stats.total)),
+
+          // mode of detection
+          _title('MODE OF DETECTION'),
+          ...sorted(
+            stats.byDetectionMode,
+          ).map((e) => _bar(e.key, e.value, stats.total)),
+
+          // clinical suspicion
+          _title('CLINICAL SUSPICION'),
+          ...sorted(
+            stats.bySuspicion,
+          ).map((e) => _bar(e.key, e.value, stats.total)),
+
+          // lesion types
+          _title('LESION TYPES'),
+          ...sorted(
+            stats.byLesionType,
+          ).map((e) => _bar(e.key, e.value, stats.total)),
+
+          // records by facility
+          _title('RECORDS BY FACILITY'),
+          ...sorted(
+            stats.byFacility,
+          ).map((e) => _bar(e.key, e.value, stats.total)),
+
+          pw.SizedBox(height: 20),
+          pw.Divider(),
+          pw.Text(
+            'Confidential - SkinApp NTD Surveillance System',
+            style: const pw.TextStyle(fontSize: 9),
+            textAlign: pw.TextAlign.center,
+          ),
+        ],
+      ),
+    );
+
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/skinapp_statistics_$date.pdf');
+    await file.writeAsBytes(await pdf.save());
+    return file;
+  }
+
+  pw.Widget _summaryCard(String label, String value) => pw.Expanded(
+    child: pw.Container(
+      padding: const pw.EdgeInsets.all(10),
+      decoration: pw.BoxDecoration(
+        color: const PdfColor.fromInt(0xFFF0F4FA),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              fontSize: 18,
+              fontWeight: pw.FontWeight.bold,
+              color: const PdfColor.fromInt(0xFF0D3C6E),
+            ),
+          ),
+          pw.Text(label, style: const pw.TextStyle(fontSize: 9)),
+        ],
+      ),
+    ),
+  );
 
   // delete user
   Future<void> _deleteUser(_AppUser user) async {
@@ -198,27 +440,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
     try {
       await FirestoreService().deleteUser(user.uid);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${user.name} removed'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${user.name} removed'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
       await _load();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to remove user: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove user: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
   Map<String, dynamic> _parseJson(String s) {
     try {
       return jsonDecode(s) as Map<String, dynamic>;
-    } catch (e) {
+    } catch (_) {
       return {};
     }
   }
@@ -253,6 +499,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       ],
                     ),
                   ),
+                  // map button - navigates instead of embed
+                  Material(
+                    color: AppColors.fieldBg,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => context.push('/admin/map'),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Icon(
+                          Icons.map_rounded,
+                          color: AppColors.navy,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  // refresh
                   Material(
                     color: AppColors.navy,
                     shape: const CircleBorder(),
@@ -326,6 +593,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       ],
                     ),
             ),
+
+            // Actions buttons row
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // View/Collapse button (circular dark)
+                  CircularActionButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    onTap: () => context.go('/home'),
+                    size: 52,
+                    bgColor: AppColors.fieldBg,
+                    iconColor: AppColors.navy,
+                  ),
+
+                  // Export button (researcher)
+                  const SizedBox(width: 16),
+                  CircularActionButton(
+                    icon: _exportingStats
+                        ? Icons.hourglass_empty_rounded
+                        : Icons.ios_share_rounded,
+
+                    onTap: _exportingStats ? () {} : _exportStatsPdf,
+                    bgColor: AppColors.saveRed,
+                    size: 52,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -394,25 +691,31 @@ class _OverviewTab extends StatelessWidget {
 
         _SectionLabel('Top Clinical Suspicions'),
         const SizedBox(height: 12),
-        ..._sorted(stats.bySuspicion).map(
-          (e) => _BarRow(
-            label: e.key,
-            count: e.value,
-            total: stats.total,
-            color: AppColors.navy,
+        if (stats.bySuspicion.isEmpty)
+          const _EmptyHint('No clinical suspicion data yet.')
+        else
+          ..._sorted(stats.bySuspicion).map(
+            (e) => _BarRow(
+              label: e.key,
+              count: e.value,
+              total: stats.total,
+              color: AppColors.navy,
+            ),
           ),
-        ),
         const SizedBox(height: 20),
         _SectionLabel('Records by Facility'),
         const SizedBox(height: 12),
-        ..._sorted(stats.byFacility).map(
-          (e) => _BarRow(
-            label: e.key,
-            count: e.value,
-            total: stats.total,
-            color: AppColors.tealDeep,
+        if (stats.byFacility.isEmpty)
+          const _EmptyHint('No facility data yet.')
+        else
+          ..._sorted(stats.byFacility).map(
+            (e) => _BarRow(
+              label: e.key,
+              count: e.value,
+              total: stats.total,
+              color: AppColors.tealDeep,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -463,46 +766,123 @@ class _StatisticsTab extends StatelessWidget {
         // Detection mode breakdown
         _SectionLabel('Mode of Detection'),
         const SizedBox(height: 12),
-        ..._sorted(stats.byDetectionMode).map(
-          (e) => _BarRow(
-            label: e.key,
-            count: e.value,
-            total: stats.total,
-            color: AppColors.navy,
+        if (stats.byDetectionMode.isEmpty)
+          const _EmptyHint('No detection mode data yet')
+        else
+          ..._sorted(stats.byDetectionMode).map(
+            (e) => _BarRow(
+              label: e.key,
+              count: e.value,
+              total: stats.total,
+              color: AppColors.navy,
+            ),
           ),
-        ),
         const SizedBox(height: 20),
 
         // Lesion type breakdown
         _SectionLabel('Lesion Types'),
         const SizedBox(height: 12),
-        ..._sorted(stats.byLesionType).map(
-          (e) => _BarRow(
-            label: e.key,
-            count: e.value,
-            total: stats.total,
-            color: const Color(0xFF3C3489),
+        if (stats.byLesionType.isEmpty)
+          const _EmptyHint('No lesion type data yet.')
+        else
+          ..._sorted(stats.byLesionType).map(
+            (e) => _BarRow(
+              label: e.key,
+              count: e.value,
+              total: stats.total,
+              color: const Color(0xFF3C3489),
+            ),
           ),
-        ),
         const SizedBox(height: 20),
 
         // Clinical suspicion
         _SectionLabel('Clinical Suspicion'),
         const SizedBox(height: 12),
-        ..._sorted(stats.bySuspicion).map(
-          (e) => _BarRow(
-            label: e.key,
-            count: e.value,
-            total: stats.total,
-            color: AppColors.tealDeep,
+        if (stats.bySuspicion.isEmpty)
+          const _EmptyHint('No clinical suspicion data yet.')
+        else
+          ..._sorted(stats.bySuspicion).map(
+            (e) => _BarRow(
+              label: e.key,
+              count: e.value,
+              total: stats.total,
+              color: AppColors.tealDeep,
+            ),
           ),
-        ),
+
+        // Location Map
+        _SectionLabel('Patient Locations'),
+        const SizedBox(height: 12),
+        _MapNavigationCard(),
       ],
     );
   }
 
   List<MapEntry<String, int>> _sorted(Map<String, int> m) =>
       m.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+}
+
+// map navigation card
+class _MapNavigationCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.navy,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => context.push('/admin/map'),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.map_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Patient Location Map',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'View all collection points on an interactive map',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.65),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: Colors.white.withOpacity(0.65),
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // user list tab
@@ -986,6 +1366,17 @@ class _SectionLabel extends StatelessWidget {
       fontWeight: FontWeight.w700,
       color: AppColors.textNavy,
     ),
+  );
+}
+
+class _EmptyHint extends StatelessWidget {
+  final String text;
+  const _EmptyHint(this.text);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Text(text, style: TextStyle(fontSize: 13, color: AppColors.textMid)),
   );
 }
 

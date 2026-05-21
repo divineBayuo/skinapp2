@@ -1,8 +1,14 @@
+// lib/features/auth/screens/patient_detail_screen.dart
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:share_plus/share_plus.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
 import 'package:skinapp2/features/auth/providers/patient_provider.dart';
 import 'package:skinapp2/models/diagnosis.dart';
@@ -12,7 +18,7 @@ import 'package:skinapp2/shared/widgets/circular_action_btn.dart';
 import 'package:skinapp2/shared/widgets/id_badge.dart';
 import 'package:skinapp2/shared/widgets/pill_field.dart';
 
-// section header
+// ── Section header — pure StatelessWidget, no logic inside ───────────────────
 class _SectionHeader extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -48,15 +54,15 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// read-only info row
+// ── Read-only info row ────────────────────────────────────────────────────────
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
-  final bool fullWidth;
+  final bool fullWidth; // FIX: now a proper constructor param
   const _InfoRow({
     required this.label,
     required this.value,
-    this.fullWidth = true,
+    this.fullWidth = false,
   });
 
   @override
@@ -66,7 +72,7 @@ class _InfoRow extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 10,
             letterSpacing: 1.1,
             fontWeight: FontWeight.w600,
@@ -82,7 +88,7 @@ class _InfoRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(30),
           ),
           child: Text(
-            value.isEmpty ? '-' : value,
+            value.isEmpty ? '—' : value,
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -95,7 +101,7 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-// chip display (read-only)
+// ── Chip display (read-only) ──────────────────────────────────────────────────
 class _ChipDisplay extends StatelessWidget {
   final List<String> items;
   const _ChipDisplay({required this.items});
@@ -104,7 +110,7 @@ class _ChipDisplay extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) {
       return Text(
-        '-',
+        '—',
         style: TextStyle(fontSize: 13, color: AppColors.textMid),
       );
     }
@@ -134,7 +140,7 @@ class _ChipDisplay extends StatelessWidget {
   }
 }
 
-// online/offline badge
+// ── Online/offline badge ──────────────────────────────────────────────────────
 class _StatusBadge extends StatelessWidget {
   final bool online;
   const _StatusBadge({required this.online});
@@ -171,9 +177,9 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-// -------------------------------------------
-// screen
-// -------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
 class PatientDetailScreen extends ConsumerStatefulWidget {
   final PatientRecord patient;
   final AccessRole role;
@@ -192,10 +198,8 @@ class PatientDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
-  // clinical notes parsed from json
   late Map<String, dynamic> _clinical;
 
-  // Diagnosis fields (physician/researcher only)
   final _findingsCtrl = TextEditingController();
   final _treatmentCtrl = TextEditingController();
   final _physicianName = TextEditingController();
@@ -203,18 +207,19 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
   DiagnosisStatus _status = DiagnosisStatus.suspected;
   bool _showDiagnosis = false;
   bool _saving = false;
+  bool _exporting = false;
 
   @override
   void initState() {
     super.initState();
     _clinical = _parseClinical(widget.patient.clinicalNotes);
-    final p = widget.patient.diagnosis;
-    if (p != null) {
-      _physicianName.text = p.physicianName;
-      _ntdType = p.ntdType;
-      _status = p.status;
-      _findingsCtrl.text = p.clinicalFindings;
-      _treatmentCtrl.text = p.treatmentPlan;
+    final d = widget.patient.diagnosis;
+    if (d != null) {
+      _physicianName.text = d.physicianName;
+      _ntdType = d.ntdType;
+      _status = d.status;
+      _findingsCtrl.text = d.clinicalFindings;
+      _treatmentCtrl.text = d.treatmentPlan;
       _showDiagnosis = true;
     }
   }
@@ -227,7 +232,7 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
     super.dispose();
   }
 
-  // helpers
+  // ── Helpers ──────────────────────────────────────────────────────────────────
   Map<String, dynamic> _parseClinical(String raw) {
     try {
       return jsonDecode(raw) as Map<String, dynamic>;
@@ -244,7 +249,7 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
 
   String _strField(String key) => _clinical[key]?.toString() ?? '';
 
-  // save diagnosis via provider
+  // ── Save diagnosis ────────────────────────────────────────────────────────────
   Future<void> _saveDiagnosis() async {
     if (_findingsCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -252,11 +257,10 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
       );
       return;
     }
-
     setState(() => _saving = true);
 
     final diagnosis = Diagnosis(
-      physicianId: 'current_physician_id',
+      physicianId: 'current_physician_id', // TODO: replace with auth UID
       physicianName: _physicianName.text.trim(),
       ntdType: _ntdType,
       status: _status,
@@ -278,7 +282,7 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
             success
                 ? online
                       ? 'Diagnosis saved and uploaded.'
-                      : 'Diagnosis saved offline - will sync when reconnected.'
+                      : 'Diagnosis saved offline — will sync when reconnected.'
                 : 'Failed to save diagnosis.',
           ),
           backgroundColor: success ? AppColors.success : Colors.redAccent,
@@ -288,17 +292,251 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
     }
   }
 
-  // ---------------------------------------------------------
-  // build
-  // --------------------------------------------------------
+  // ── Export THIS patient as PDF + CSV ──────────────────────────────────────────
+  // FIX: export operates on widget.patient only — no tab/filter references
+  Future<void> _exportThisRecord() async {
+    setState(() => _exporting = true);
+    try {
+      final p = widget.patient;
+      final pdfFile = await _buildPdf(p);
+      final csvFile = await _buildCsv(p);
+      await Share.shareXFiles([
+        XFile(pdfFile.path),
+        XFile(csvFile.path),
+      ], text: 'Patient Record — ${p.fullName}');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  Future<File> _buildPdf(PatientRecord r) async {
+    final pdf = pw.Document();
+    final clinical = _parseClinical(r.clinicalNotes);
+
+    pdf.addPage(
+      pw.MultiPage(
+        build: (_) => [
+          pw.Text(
+            'Patient Record',
+            style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 14),
+
+          // Identity
+          pw.Text(
+            'PATIENT IDENTITY',
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+              color: const PdfColor.fromInt(0xFF1A7A6E),
+            ),
+          ),
+          pw.SizedBox(height: 6),
+          _pdfRow('ID', r.idNumber),
+          _pdfRow('Full Name', r.fullName),
+          _pdfRow('Date of Birth', '${r.formattedDob} (${r.ageInYears} yrs)'),
+          _pdfRow('Sex', r.sex),
+          _pdfRow('Phone', r.phone),
+          _pdfRow('Emergency Name', r.emergencyName),
+          _pdfRow('Emergency Contact', r.emergencyContact),
+          _pdfRow('Location (GPS)', r.locationCoords),
+          _pdfRow('Facility', r.facilityName),
+          _pdfRow('Collected At', r.formattedTimestamp),
+          pw.SizedBox(height: 14),
+
+          // Detection
+          pw.Text(
+            'DETECTION & CLASSIFICATION',
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+              color: const PdfColor.fromInt(0xFF1A7A6E),
+            ),
+          ),
+          pw.SizedBox(height: 6),
+          _pdfRow(
+            'Mode of Detection',
+            clinical['modeOfDetection']?.toString() ?? '',
+          ),
+          _pdfRow(
+            'Classification',
+            clinical['classification']?.toString() ?? '',
+          ),
+          pw.SizedBox(height: 14),
+
+          // Clinical
+          pw.Text(
+            'CLINICAL DETAILS',
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+              color: const PdfColor.fromInt(0xFF1A7A6E),
+            ),
+          ),
+          pw.SizedBox(height: 6),
+          _pdfRow(
+            'Duration of Sickness',
+            clinical['durationOfSickness']?.toString() ?? '',
+          ),
+          _pdfRow(
+            'Examination Date',
+            clinical['dateOfExamination']?.toString() ?? '',
+          ),
+          _pdfRow(
+            'Limitation of Movement',
+            clinical['limitationOfMovement']?.toString() ?? '',
+          ),
+          _pdfRow(
+            'Number of Lesions',
+            clinical['numberOfLesions']?.toString() ?? '',
+          ),
+          _pdfRow(
+            'Biggest Lesion (cm)',
+            clinical['diameterBiggestLesion']?.toString() ?? '',
+          ),
+          _pdfRow(
+            'Lesion Types',
+            (clinical['lesionTypes'] as List? ?? []).join(', '),
+          ),
+          _pdfRow(
+            'Lesion Locations',
+            (clinical['lesionLocations'] as List? ?? []).join(', '),
+          ),
+          _pdfRow(
+            'Clinical Suspicion',
+            (clinical['clinicalSuspicion'] as List? ?? []).join(', '),
+          ),
+          pw.SizedBox(height: 6),
+          if ((clinical['additionalNotes'] ?? '').toString().isNotEmpty) ...[
+            pw.Text(
+              'Additional Notes:',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            ),
+            pw.Text(clinical['additionalNotes'].toString()),
+          ],
+
+          // Diagnosis
+          if (r.diagnosis != null) ...[
+            pw.SizedBox(height: 14),
+            pw.Text(
+              'DIAGNOSIS',
+              style: pw.TextStyle(
+                fontSize: 10,
+                fontWeight: pw.FontWeight.bold,
+                color: const PdfColor.fromInt(0xFF1A7A6E),
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            _pdfRow('NTD Type', r.diagnosis!.ntdType.label),
+            _pdfRow('Status', r.diagnosis!.status.label),
+            _pdfRow('Physician', r.diagnosis!.physicianName),
+            _pdfRow('Findings', r.diagnosis!.clinicalFindings),
+            _pdfRow('Treatment Plan', r.diagnosis!.treatmentPlan),
+            _pdfRow('Diagnosed At', r.diagnosis!.diagnosedAt.toIso8601String()),
+          ],
+        ],
+      ),
+    );
+
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/${r.idNumber}_record.pdf');
+    await file.writeAsBytes(await pdf.save());
+    return file;
+  }
+
+  pw.Widget _pdfRow(String label, String value) => pw.Padding(
+    padding: const pw.EdgeInsets.only(bottom: 4),
+    child: pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.SizedBox(
+          width: 160,
+          child: pw.Text(
+            '$label:',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+          ),
+        ),
+        pw.Expanded(
+          child: pw.Text(
+            value.isEmpty ? '—' : value,
+            style: const pw.TextStyle(fontSize: 11),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Future<File> _buildCsv(PatientRecord r) async {
+    final clinical = _parseClinical(r.clinicalNotes);
+    final rows = [
+      ['Field', 'Value'],
+      ['ID', r.idNumber],
+      ['Full Name', r.fullName],
+      ['Date of Birth', '${r.formattedDob} (${r.ageInYears} yrs)'],
+      ['Sex', r.sex],
+      ['Phone', r.phone],
+      ['Emergency Name', r.emergencyName],
+      ['Emergency Contact', r.emergencyContact],
+      ['Location (GPS)', r.locationCoords],
+      ['Facility', r.facilityName],
+      ['Collected At', r.formattedTimestamp],
+      ['Mode of Detection', clinical['modeOfDetection']?.toString() ?? ''],
+      ['Classification', clinical['classification']?.toString() ?? ''],
+      [
+        'Duration of Sickness',
+        clinical['durationOfSickness']?.toString() ?? '',
+      ],
+      ['Examination Date', clinical['dateOfExamination']?.toString() ?? ''],
+      [
+        'Limitation of Movement',
+        clinical['limitationOfMovement']?.toString() ?? '',
+      ],
+      ['Number of Lesions', clinical['numberOfLesions']?.toString() ?? ''],
+      [
+        'Biggest Lesion (cm)',
+        clinical['diameterBiggestLesion']?.toString() ?? '',
+      ],
+      ['Lesion Types', (clinical['lesionTypes'] as List? ?? []).join('; ')],
+      [
+        'Lesion Locations',
+        (clinical['lesionLocations'] as List? ?? []).join('; '),
+      ],
+      [
+        'Clinical Suspicion',
+        (clinical['clinicalSuspicion'] as List? ?? []).join('; '),
+      ],
+      ['Additional Notes', clinical['additionalNotes']?.toString() ?? ''],
+      ['Diagnosed', r.hasDiagnosis ? 'Yes' : 'No'],
+      if (r.diagnosis != null) ...[
+        ['NTD Type', r.diagnosis!.ntdType.label],
+        ['Status', r.diagnosis!.status.label],
+        ['Physician', r.diagnosis!.physicianName],
+        ['Findings', r.diagnosis!.clinicalFindings],
+        ['Treatment Plan', r.diagnosis!.treatmentPlan],
+        ['Diagnosed At', r.diagnosis!.diagnosedAt.toIso8601String()],
+      ],
+    ];
+    final csv = const ListToCsvConverter().convert(rows);
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/${r.idNumber}_record.csv');
+    await file.writeAsString(csv);
+    return file;
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final p = widget.patient;
-    final edit = widget.editMode && widget.role.canDiagnose;
+    final canEdit = widget.editMode && widget.role.canDiagnose;
     final online = ref.watch(patientProvider(widget.role)).online;
 
-    // parsed clinical data
     final modeOfDetection = _strField('modeOfDetection');
     final modeOther = _strField('modeOfDetectionOther');
     final classification = _strField('classification');
@@ -324,12 +562,9 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
         ),
-        // Researcher sees timestamp in appBar
         actions: [
-          // online badge
           _StatusBadge(online: online),
           const SizedBox(width: 8),
-          // timestamp for physician and researcher
           if (widget.role.canViewTimestamps)
             Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -357,20 +592,20 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
             ),
         ],
       ),
+
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 60),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Patient name
+              // Name + ID
               Text(p.firstName, style: t.pageTitle),
               if (p.lastName.isNotEmpty) Text(p.lastName, style: t.pageTitle),
               const SizedBox(height: 12),
-              // ID badge
               PatientIdBadge(idNumber: p.idNumber),
 
-              // diagnosis status chip
+              // Diagnosed chip
               if (p.hasDiagnosis) ...[
                 const SizedBox(height: 10),
                 Container(
@@ -407,22 +642,19 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                 ),
               ],
 
-              // ------------------
-              // section a
-              // --------------------
+              // ── Section A ─────────────────────────────────────────────────
               const _SectionHeader(
                 title: 'Patient Identity',
                 icon: Icons.person_outline_rounded,
               ),
-
-              _InfoRow(label: 'Full Name', value: p.fullName),
+              _InfoRow(label: 'Full Name', value: p.fullName, fullWidth: true),
               const SizedBox(height: 12),
               _InfoRow(
                 label: 'Date of Birth',
-                value: '${p.formattedDob} (${p.ageInYears} yrs)',
+                value: '${p.formattedDob}  (${p.ageInYears} yrs)',
+                fullWidth: true,
               ),
               const SizedBox(height: 12),
-
               Row(
                 children: [
                   Expanded(
@@ -436,7 +668,6 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-
               Row(
                 children: [
                   Expanded(
@@ -455,20 +686,24 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-
-              _InfoRow(label: 'Location (GPS)', value: p.locationCoords),
+              _InfoRow(
+                label: 'Location (GPS)',
+                value: p.locationCoords,
+                fullWidth: true,
+              ),
               const SizedBox(height: 12),
-              _InfoRow(label: 'Facility', value: p.facilityName),
+              _InfoRow(
+                label: 'Facility',
+                value: p.facilityName,
+                fullWidth: true,
+              ),
 
-              // ----------------------------
-              // section b
-              // ----------------------------
+              // ── Section B ─────────────────────────────────────────────────
               if (modeOfDetection.isNotEmpty || classification.isNotEmpty) ...[
                 const _SectionHeader(
                   title: 'Detection & Classification',
                   icon: Icons.track_changes_rounded,
                 ),
-
                 Row(
                   children: [
                     Expanded(
@@ -491,14 +726,11 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                 ),
               ],
 
-              // ---------------------
-              // section c - clinical details
-              // ---------------------------
+              // ── Section C ─────────────────────────────────────────────────
               const _SectionHeader(
                 title: 'Clinical Details',
                 icon: Icons.medical_information_outlined,
               ),
-
               Row(
                 children: [
                   Expanded(
@@ -514,7 +746,6 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-
               Row(
                 children: [
                   Expanded(
@@ -538,7 +769,6 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
               ),
               const SizedBox(height: 16),
 
-              // lesion types
               if (lesionTypes.isNotEmpty) ...[
                 Text(
                   'TYPE OF LESION',
@@ -554,7 +784,6 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                 const SizedBox(height: 16),
               ],
 
-              // lesion locations
               if (lesionLocations.isNotEmpty) ...[
                 Text(
                   'LOCATION OF LESION',
@@ -570,7 +799,6 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                 const SizedBox(height: 16),
               ],
 
-              // clinical suspicion
               if (clinicalSuspicion.isNotEmpty) ...[
                 Text(
                   'CLINICAL SUSPICION',
@@ -583,18 +811,17 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                 ),
                 const SizedBox(height: 8),
                 _ChipDisplay(
-                  items: clinicalSuspicion.map((s) {
-                    if (s == 'Other' && suspicionOther.isNotEmpty) {
-                      return 'Other: $suspicionOther';
-                    }
-                    return s;
-                  }).toList(),
+                  items: clinicalSuspicion
+                      .map(
+                        (s) => s == 'Other' && suspicionOther.isNotEmpty
+                            ? 'Other: $suspicionOther'
+                            : s,
+                      )
+                      .toList(),
                 ),
               ],
 
-              // ------------------------------------
-              // section d - photos
-              // ------------------------------------
+              // ── Section D — Photos ─────────────────────────────────────────
               if (localPhotoPaths.isNotEmpty || cloudPhotoUrls.isNotEmpty) ...[
                 const _SectionHeader(
                   title: 'Lesion Photos',
@@ -605,9 +832,7 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
-                      // cloud urls first (synced)
                       ...cloudPhotoUrls.map((url) => _PhotoThumb.network(url)),
-                      // local paths (offline)
                       ...localPhotoPaths
                           .where((path) => File(path).existsSync())
                           .map((path) => _PhotoThumb.file(path)),
@@ -616,9 +841,7 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                 ),
               ],
 
-              // ----------------------------------
-              // section e - additional notes
-              // ----------------------------------
+              // ── Section E — Notes ──────────────────────────────────────────
               if (additionalNotes.isNotEmpty) ...[
                 const _SectionHeader(
                   title: 'Additional Notes',
@@ -642,13 +865,9 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                 ),
               ],
 
-              // ----------------------------------------
-              // section f - diagnosis (physician only)
-              // ---------------------------------------------
+              // ── Section F — Diagnosis ──────────────────────────────────────
               if (widget.role.canDiagnose) ...[
                 const SizedBox(height: 28),
-
-                //Toggle header
                 Material(
                   color: AppColors.navy,
                   borderRadius: BorderRadius.circular(40),
@@ -688,8 +907,6 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
 
                 if (_showDiagnosis) ...[
                   const SizedBox(height: 16),
-
-                  // NTD type selector
                   Text(
                     'NTD Type',
                     style: t.labelMedium?.copyWith(
@@ -717,13 +934,15 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                           fontWeight: FontWeight.w600,
                           color: AppColors.textNavy,
                         ),
-                        items: SkinNtdType.values.map((t) {
-                          return DropdownMenuItem(
-                            value: t,
-                            child: Text(t.label),
-                          );
-                        }).toList(),
-                        onChanged: edit
+                        items: SkinNtdType.values
+                            .map(
+                              (nt) => DropdownMenuItem(
+                                value: nt,
+                                child: Text(nt.label),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: canEdit
                             ? (v) => setState(
                                 () => _ntdType = v ?? SkinNtdType.unknown,
                               )
@@ -732,7 +951,7 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  // status
+
                   Text(
                     'Status',
                     style: t.labelMedium?.copyWith(
@@ -751,7 +970,7 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                         borderRadius: BorderRadius.circular(40),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(40),
-                          onTap: edit
+                          onTap: canEdit
                               ? () => setState(() => _status = s)
                               : null,
                           child: Padding(
@@ -775,7 +994,24 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Clinical findings
+                  Text(
+                    'Physician Name',
+                    style: t.labelMedium?.copyWith(
+                      color: AppColors.textMid,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  LabeledPillField(
+                    label: '',
+                    field: PillField(
+                      controller: _physicianName,
+                      readOnly: !canEdit,
+                      hint: 'Physician full name',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
                   Text(
                     'Clinical Findings',
                     style: t.labelMedium?.copyWith(
@@ -788,14 +1024,13 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                     label: '',
                     field: PillField(
                       controller: _findingsCtrl,
-                      readOnly: !edit,
+                      readOnly: !canEdit,
                       maxLines: 4,
-                      hint: 'Describe your clinical findings...',
+                      hint: 'Describe your clinical findings…',
                     ),
                   ),
                   const SizedBox(height: 14),
 
-                  // Treatment plan
                   Text(
                     'Treatment Plan',
                     style: t.labelMedium?.copyWith(
@@ -808,9 +1043,9 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                     label: '',
                     field: PillField(
                       controller: _treatmentCtrl,
-                      readOnly: !edit,
+                      readOnly: !canEdit,
                       maxLines: 4,
-                      hint: 'Recommended treatment...',
+                      hint: 'Recommended treatment…',
                     ),
                   ),
                 ],
@@ -818,11 +1053,11 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
 
               const SizedBox(height: 36),
 
-              // Actions buttons row
+              // ── Action buttons ─────────────────────────────────────────────
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // View/Collapse button (circular dark)
+                  // Back
                   CircularActionButton(
                     icon: Icons.arrow_back_ios_new_rounded,
                     onTap: () => Navigator.of(context).pop(),
@@ -831,8 +1066,8 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                     iconColor: AppColors.navy,
                   ),
 
-                  // save diagnosis (physician in edit mode)
-                  if (edit && _showDiagnosis) ...[
+                  // Save diagnosis — physician only, when panel is open
+                  if (canEdit && _showDiagnosis) ...[
                     const SizedBox(width: 16),
                     CircularActionButton(
                       icon: _saving
@@ -844,18 +1079,17 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                     ),
                   ],
 
-                  // Export button (researcher)
-                  if (!widget.role.canExport && !widget.role.canDiagnose) ...[
+                  // Export — researchers and physicians
+                  // FIX: was checking !canExport && !canDiagnose (nobody)
+                  // Now: anyone with canExport OR canDiagnose can export
+                  if (widget.role.canExport || widget.role.canDiagnose) ...[
                     const SizedBox(width: 16),
                     CircularActionButton(
-                      icon: Icons.ios_share_rounded,
-
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Export coming soon.')),
-                        );
-                      },
-                      bgColor: AppColors.saveRed,
+                      icon: _exporting
+                          ? Icons.hourglass_empty_rounded
+                          : Icons.ios_share_rounded,
+                      onTap: _exporting ? () {} : _exportThisRecord,
+                      bgColor: AppColors.navy,
                       size: 52,
                     ),
                   ],
@@ -869,7 +1103,7 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
   }
 }
 
-// photo thumbnail widget
+// ── Photo thumbnail ───────────────────────────────────────────────────────────
 class _PhotoThumb extends StatelessWidget {
   final String? networkUrl;
   final String? localPath;
@@ -880,17 +1114,16 @@ class _PhotoThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isNetwork = networkUrl != null;
-
+    final isNet = networkUrl != null;
     return GestureDetector(
-      onTap: () => _showFullScreen(context),
+      onTap: () => _showFull(context),
       child: Container(
         width: 110,
         height: 110,
         margin: const EdgeInsets.only(right: 10),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: isNetwork
+          child: isNet
               ? Image.network(
                   networkUrl!,
                   fit: BoxFit.cover,
@@ -902,26 +1135,25 @@ class _PhotoThumb extends StatelessWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         ),
-                  errorBuilder: (_, __, ___) =>
-                      _placeholder(Icons.broken_image_rounded),
+                  errorBuilder: (_, __, ___) => _ph(Icons.broken_image_rounded),
                 )
               : Image.file(
                   File(localPath!),
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) =>
-                      _placeholder(Icons.image_not_supported_rounded),
+                      _ph(Icons.image_not_supported_rounded),
                 ),
         ),
       ),
     );
   }
 
-  Widget _placeholder(IconData icon) => Container(
+  Widget _ph(IconData icon) => Container(
     color: AppColors.fieldBg,
     child: Center(child: Icon(icon, color: AppColors.textMid, size: 28)),
   );
 
-  void _showFullScreen(BuildContext context) {
+  void _showFull(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,

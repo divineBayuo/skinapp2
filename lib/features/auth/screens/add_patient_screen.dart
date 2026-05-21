@@ -5,10 +5,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
+import 'package:skinapp2/features/auth/providers/auth_provider.dart';
 import 'package:skinapp2/features/auth/providers/patient_provider.dart';
 import 'package:skinapp2/models/patient.dart';
 import 'package:skinapp2/models/user.dart';
@@ -500,7 +503,30 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       return;
     }
 
+    // guard
+    if (_dobCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a date of birth.')),
+      );
+      return;
+    }
+
     setState(() => _submitting = true);
+
+    // replacing authProvider below with top-level
+    final authState = ref.read(authProvider);
+    final currentUser = authState.user;
+
+    if (currentUser == null) {
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You must be logged in to add a patient.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
 
     // Parse DOB
     final dobParts = _dobCtrl.text.split('-');
@@ -549,8 +575,8 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       emergencyContact: _emergContactCtrl.text.trim(),
       photoUrls: const [], // populated after cloud upload on sync
       clinicalNotes: jsonEncode(clinicalData), // TODO: serialize as JSON
-      collectorId: 'current_user_id',
-      facilityName: 'Main Facility',
+      collectorId: currentUser.id,
+      facilityName: currentUser.facilityName ?? 'Unknown Facility',
       collectedAt: now,
       updatedAt: now,
     );
@@ -562,7 +588,7 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
 
     if (mounted) {
       setState(() => _submitting = false);
-      final online = ref.read(isOnlineProvider(widget.role));
+      final online = ref.watch(isOnlineProvider(widget.role));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -577,7 +603,21 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
               : Colors.redAccent,
         ),
       );
-      if (success) _resetForm();
+      if (success) {
+        _resetForm();
+        // increment recordCount
+        await _incrementRecord(currentUser.id);
+      }
+    }
+  }
+
+  Future<void> _incrementRecord(String uid) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'recordCount': FieldValue.increment(1),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('_incrementRecord failed: $e');
     }
   }
 
@@ -1199,7 +1239,7 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              fullWidth ? 'Add Lesionn Photos' : 'Add More',
+              fullWidth ? 'Add Lesion Photos' : 'Add More',
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.tealDeep,
