@@ -16,6 +16,7 @@ import 'package:skinapp2/features/auth/providers/patient_provider.dart';
 import 'package:skinapp2/models/patient.dart';
 import 'package:skinapp2/models/user.dart';
 import 'package:skinapp2/services/location_service.dart';
+import 'package:skinapp2/services/photo_service.dart';
 import 'package:skinapp2/shared/widgets/circular_action_btn.dart';
 import 'package:skinapp2/shared/widgets/pill_field.dart';
 
@@ -446,10 +447,18 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       ),
     );
     if (source == null) return;
-    final file = await picker.pickImage(source: source, imageQuality: 80);
+
+    final picked = await picker.pickImage(source: source, imageQuality: 80);
+    if (picked == null) return;
+
+    // persist to doc dir immediately, not temp cache
+    final permanentPath = await PhotoService().persistPhoto(picked.path);
+    setState(() => _lesionPhotos.add(File(permanentPath)));
+
+    /* final file = await picker.pickImage(source: source, imageQuality: 80);
     if (file != null) {
       setState(() => _lesionPhotos.add(File(file.path)));
-    }
+    } */
   }
 
   // --- Chip toggles -------------------
@@ -561,6 +570,13 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       'localPhotoPaths': _lesionPhotos.map((f) => f.path).toList(),
     };
 
+    // Temporarily add this in _submit(), right after building clinicalData:
+    debugPrint('📸 Photos at submit time: ${_lesionPhotos.length}');
+    debugPrint('📸 Paths: ${_lesionPhotos.map((f) => f.path).toList()}');
+    debugPrint(
+      '📸 clinicalData localPhotoPaths: ${clinicalData['localPhotoPaths']}',
+    );
+
     final record = PatientRecord(
       id: idNo,
       idNumber: idNo,
@@ -574,7 +590,7 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       emergencyName: _emergNameCtrl.text.trim(),
       emergencyContact: _emergContactCtrl.text.trim(),
       photoUrls: const [], // populated after cloud upload on sync
-      clinicalNotes: jsonEncode(clinicalData), // TODO: serialize as JSON
+      clinicalNotes: jsonEncode(clinicalData), // serialize as JSON
       collectorId: currentUser.id,
       facilityName: currentUser.facilityName ?? 'Unknown Facility',
       collectedAt: now,
@@ -604,9 +620,16 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
         ),
       );
       if (success) {
+        // capture paths before resetting
+        final savedPaths = List<String>.from(_lesionPhotos.map((f) => f.path));
+
         _resetForm();
         // increment recordCount
         await _incrementRecord(currentUser.id);
+
+        // savedPaths are now in the Firestore record's clinicalNotes.
+        // They'll be uploaded by SyncService or FirestoreService on next push.
+        // No further action needed here — the paths are already in the record.
       }
     }
   }

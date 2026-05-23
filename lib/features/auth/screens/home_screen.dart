@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
 import 'package:skinapp2/features/auth/providers/auth_provider.dart';
 import 'package:skinapp2/features/auth/screens/add_patient_screen.dart';
@@ -213,6 +214,39 @@ class _HomeTab extends ConsumerWidget {
                 onTap: () {}, // add download function
                 accent: AppColors.roleResearcher,
               ),
+
+              const SizedBox(height: 24),
+              // admin dashboard button
+              InkWell(
+                onTap: /*  () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AdminDashboardScreen(),
+                        ),
+                      ) */ () {
+                  if (context.mounted) context.go('/admin');
+                },
+                child: Container(
+                  width: 150,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.navy, width: 2),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Admin? Go to',
+                        style: TextStyle(fontStyle: FontStyle.italic),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Dashboard',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
 
             // facilityName if available
@@ -248,6 +282,42 @@ class _HomeTab extends ConsumerWidget {
                 ),
               ),
             ],
+
+            const SizedBox(height: 24),
+
+            Center(
+              child: InkWell(
+                onTap: /*  () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => AdminDashboardScreen(),
+                          ),
+                        ) */ () {
+                  if (context.mounted) context.go('/admin');
+                },
+                child: Container(
+                  width: 150,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.navy, width: 2),
+                    color: AppColors.navy
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Admin? Go to',
+                        style: TextStyle(fontStyle: FontStyle.italic, color: AppColors.roleCollector),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Dashboard',
+                        style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.successBg),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

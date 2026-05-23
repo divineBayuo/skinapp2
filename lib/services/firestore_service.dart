@@ -25,15 +25,17 @@ class FirestoreService {
     for (int i = 0; i < localPaths.length; i++) {
       final file = File(localPaths[i]);
       if (!file.existsSync()) {
+        debugPrint('❌ Photo file not found: ${localPaths[i]}');
         debugPrint('FirestoreService: photo not found at ${localPaths[i]}');
         continue;
       }
       try {
+        debugPrint('⬆️ Uploading photo $i: ${localPaths[i]}');
         final ref = _storage
             .ref()
-            .child('patients')
+            .child('patients_photos')
             .child(patientId)
-            .child('photo_$i.jpg');
+            .child('photo_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
 
         final task = await ref.putFile(
           file,
@@ -42,8 +44,14 @@ class FirestoreService {
         final url = await task.ref.getDownloadURL();
         urls.add(url);
         debugPrint('FirestoreService: uploaded photo $i -> $url');
+        debugPrint(
+          '⬆️ Uploading to: patient_photos/$patientId/photo_..._$i.jpg',
+        );
+        debugPrint('✅ Photo $i uploaded: $url');
       } catch (e) {
         debugPrint('FirestoreService: photo $i upload failed: $e');
+        debugPrint('❌ Photo $i upload failed: $e');
+        rethrow;
       }
     }
     return urls;
@@ -61,16 +69,29 @@ class FirestoreService {
         .where((p) => p.isNotEmpty)
         .toList();
 
+    debugPrint(
+      '📋 upsertPatient: ${localPaths.length} photos to upload '
+      'for patient ${patient.id}',
+    );
+
     List<String> cloudUrls = List<String>.from(patient.photoUrls);
 
     // 2. upload any localphotos that haven't been
     if (localPaths.isNotEmpty) {
-      final newUrls = await uploadPhotos(patient.id, localPaths);
-      cloudUrls = [...cloudUrls, ...newUrls];
+      try {
+        final newUrls = await uploadPhotos(patient.id, localPaths);
+        cloudUrls = [...cloudUrls, ...newUrls];
 
-      // 3. clear local paths now that they're uploaded, store cloud urls
-      clinical['localPhotoPaths'] = [];
-      clinical['photoUrls'] = cloudUrls;
+        // 3. clear local paths now that they're uploaded, store cloud urls
+        clinical['localPhotoPaths'] = [];
+        clinical['photoUrls'] = cloudUrls;
+        debugPrint('✅ ${newUrls.length} photos uploaded successfully');
+      } catch (e) {
+        // Photos failed but we still save the record — paths remain
+        // in localPhotoPaths so SyncService can retry on next connection
+        debugPrint('⚠️ Photo upload failed, saving record without photos: $e');
+        // Leave localPhotoPaths intact so retry works
+      }
     }
 
     // 4. build the final map with cloud url in photourl field
@@ -79,6 +100,7 @@ class FirestoreService {
     map['clinicalNotes'] = jsonEncode(clinical);
 
     await _patients.doc(patient.id).set(map);
+    debugPrint('✅ Patient record saved to Firestore: ${patient.id}');
   }
 
   // call this everytime a new patient record is taken

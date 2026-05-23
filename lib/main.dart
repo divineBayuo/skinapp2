@@ -1,3 +1,4 @@
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // initialize app check before any other firebase service
+  await FirebaseAppCheck.instance.activate(
+    // using debug provider for emulators/dev builds
+    androidProvider: AndroidProvider.debug,   // change to playIntegrity for release
+    appleProvider: AppleProvider.debug,       // change to deviceCheck for release
+  );
 
   runApp(const ProviderScope(child: SkinNtdApp()));
 }

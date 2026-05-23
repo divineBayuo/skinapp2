@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
 import 'package:skinapp2/features/admin/admin_dashboard.dart';
 
@@ -40,7 +41,7 @@ class AdminGuard extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () => context.go('/home'),
                   child: const Text('Go back'),
                 ),
               ],
