@@ -201,6 +201,18 @@ class PatientNotifier extends StateNotifier<PatientState> {
         await _local.markSynced(patientId);
       }
 
+      // increment the physician's diagnosis count
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(diagnosis.physicianId)
+            .set({
+              'diagnosisCount': FieldValue.increment(1),
+            }, SetOptions(merge: true));
+      } catch (e) {
+        debugPrint('diagnosisCount increment failed: $e');
+      }
+
       await _refreshFromLocal();
       return true;
     } catch (e) {

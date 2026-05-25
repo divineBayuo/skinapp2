@@ -10,6 +10,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
+import 'package:skinapp2/features/auth/providers/auth_provider.dart';
 import 'package:skinapp2/features/auth/providers/patient_provider.dart';
 import 'package:skinapp2/models/diagnosis.dart';
 import 'package:skinapp2/models/patient.dart';
@@ -259,8 +260,11 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
     }
     setState(() => _saving = true);
 
+    final authState = ref.read(authProvider);
+    final physicianId = authState.user?.id ?? '';
+
     final diagnosis = Diagnosis(
-      physicianId: 'current_physician_id', // TODO: replace with auth UID
+      physicianId: physicianId,
       physicianName: _physicianName.text.trim(),
       ntdType: _ntdType,
       status: _status,

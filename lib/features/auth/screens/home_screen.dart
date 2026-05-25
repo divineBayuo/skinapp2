@@ -199,7 +199,7 @@ class _HomeTab extends ConsumerWidget {
               const SizedBox(height: 10),
               _QuickActionCard(
                 icon: Icons.edit_note_rounded,
-                title: 'Pending Diagnoses',
+                title: 'Give Diagnoses',
                 subtitle: 'Patients awaiting diagnosis',
                 onTap: () {},
                 accent: AppColors.warning,

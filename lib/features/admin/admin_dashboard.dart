@@ -22,7 +22,8 @@ class _AppUser {
   final String role;
   final String facility;
   final DateTime? lastSeen;
-  final int recordCount;
+  final int recordCount; // collectors: patients collected
+  final int diagnosisCount; //physicians: diagnoses complete
 
   const _AppUser({
     required this.uid,
@@ -31,6 +32,7 @@ class _AppUser {
     required this.role,
     required this.facility,
     required this.recordCount,
+    required this.diagnosisCount,
     this.lastSeen,
   });
 
@@ -41,10 +43,23 @@ class _AppUser {
     role: m['role'] as String? ?? 'collector',
     facility: m['facilityName'] as String? ?? '-',
     recordCount: m['recordCount'] as int? ?? 0,
+    diagnosisCount: m['diagnosisCount'] as int? ?? 0,
     lastSeen: m['lastSeen'] != null
         ? DateTime.tryParse(m['lastSeen'] as String)
         : null,
   );
+
+  // return relevant count label for diagnosis
+  String get activityLabel {
+    switch (role) {
+      case 'physician':
+        return '$diagnosisCount diagnosed';
+      case 'researcher':
+        return '$recordCount records viewed';
+      default:
+        return '$recordCount records';
+    }
+  }
 }
 
 // -- patient summary ----------
@@ -190,6 +205,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           .map((d) => _PatientSummary.fromMap(d.id, d.data()))
           .toList();
 
+      // count records per collector and diagnoses per physician
+      final recordsByCollector = <String, int>{};
+      final diagnosesByPhysician = <String, int>{};
+
       // build stats
       int diagnosed = 0;
       final bySuspicion = <String, int>{};
@@ -199,6 +218,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       final bySex = <String, int>{};
 
       for (final p in patients) {
+        // collector record count
+        final collectorId = p['collectorId'] as String? ?? '';
+        if (collectorId.isEmpty) {
+          recordsByCollector[collectorId] =
+              (recordsByCollector[collectorId] ?? 0) + 1;
+        }
+
+        // physician diagnosis count
+        final diagnosis = p['diagnosis'] as Map<String, dynamic>?;
+        if (diagnosis != null) {
+          final physicianId = diagnosis['physicianId'] as String? ?? '';
+          if (physicianId.isNotEmpty) {
+            diagnosesByPhysician[physicianId] =
+                (diagnosesByPhysician[physicianId] ?? 0) + 1;
+          }
+        }
+
         if (p['diagnosis'] != null) diagnosed++;
 
         // sex
@@ -229,10 +265,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         byDetection[mode] = (byDetection[mode] ?? 0) + 1;
       }
 
+      // apply live counts to user objects
+      final enrinchedUsers = users.map((u) {
+        final liveRecordCount = recordsByCollector[u.uid] ?? u.recordCount;
+        final liveDiagnosisCount =
+            diagnosesByPhysician[u.uid] ?? u.diagnosisCount;
+
+        return _AppUser(
+          uid: u.uid,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          facility: u.facility,
+          lastSeen: u.lastSeen,
+          recordCount: liveRecordCount,
+          diagnosisCount: liveDiagnosisCount,
+        );
+      }).toList();
+
       setState(() {
-        _collectors = users.where((u) => u.role == 'collector').toList();
-        _physicians = users.where((u) => u.role == 'physician').toList();
-        _researchers = users.where((u) => u.role == 'researcher').toList();
+        _collectors = enrinchedUsers
+            .where((u) => u.role == 'collector')
+            .toList();
+        _physicians = enrinchedUsers
+            .where((u) => u.role == 'physician')
+            .toList();
+        _researchers = enrinchedUsers
+            .where((u) => u.role == 'researcher')
+            .toList();
         _patients = patientList;
         _stats = _Stats(
           total: patients.length,
@@ -1546,7 +1606,11 @@ class _UserCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   user.email,
-                  style: TextStyle(fontSize: 12, color: AppColors.textMid),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textMid,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Row(
@@ -1602,7 +1666,8 @@ class _UserCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                '${user.recordCount} records',
+                // made role-aware
+                user.activityLabel,
                 style: TextStyle(fontSize: 11, color: AppColors.textMid),
               ),
               const SizedBox(height: 8),
