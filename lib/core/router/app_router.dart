@@ -6,10 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:skinapp2/features/admin/admin_guard.dart';
 import 'package:skinapp2/features/admin/patient_map_screen.dart';
 import 'package:skinapp2/features/auth/providers/auth_provider.dart';
+import 'package:skinapp2/features/auth/screens/add_patient_screen.dart';
 import 'package:skinapp2/features/auth/screens/auth_screen.dart';
 import 'package:skinapp2/features/auth/screens/home_screen.dart';
 import 'package:skinapp2/features/auth/screens/onboarding_screen.dart';
 import 'package:skinapp2/features/auth/screens/splash_screen.dart';
+import 'package:skinapp2/models/user.dart';
 
 class RoleGate extends ConsumerWidget {
   const RoleGate({super.key});
@@ -92,6 +94,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/login', builder: (_, __) => const AuthScreen()),
       GoRoute(path: '/home', builder: (_, __) => const RoleGate()),
+      GoRoute(path: '/addpatient', builder: (_, __) => const AddPatientScreen(role: AccessRole.collector)),
       GoRoute(path: '/admin', builder: (_, __) => const AdminGuard()),
       GoRoute(path: '/admin/map', builder: (_, __) => const PatientMapScreen()),
     ],

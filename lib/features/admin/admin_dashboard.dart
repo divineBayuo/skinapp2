@@ -1,6 +1,7 @@
 // models
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -46,6 +47,61 @@ class _AppUser {
   );
 }
 
+// -- patient summary ----------
+class _PatientSummary {
+  final String id;
+  final String fullName;
+  final String idNumber;
+  final String collectorId;
+  final String facility;
+  final String collectedAt;
+  final bool hasDiagnosis;
+
+  const _PatientSummary({
+    required this.id,
+    required this.fullName,
+    required this.idNumber,
+    required this.collectorId,
+    required this.facility,
+    required this.collectedAt,
+    required this.hasDiagnosis,
+  });
+
+  factory _PatientSummary.fromMap(String id, Map<String, dynamic> m) =>
+      _PatientSummary(
+        id: id,
+        fullName: m['fullName'] as String? ?? 'Unknown',
+        idNumber: m['idNumber'] as String? ?? id,
+        collectorId: m['collectorId'] as String? ?? '',
+        facility: m['facilityName'] as String? ?? '-',
+        collectedAt: m['collectedAt'] as String? ?? '',
+        hasDiagnosis: m['diagnosis'] != null,
+      );
+
+  String get formattedDate {
+    try {
+      final d = DateTime.parse(collectedAt);
+      const mo = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return '${d.day} ${mo[d.month - 1]} ${d.year}';
+    } catch (_) {
+      return collectedAt;
+    }
+  }
+}
+
 class _Stats {
   final int total;
   final int diagnosed;
@@ -79,24 +135,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
   bool _loading = true;
-  String? _error;
   bool _exportingStats = false;
+  bool _clearingDb = false;
+  String? _error;
 
   List<_AppUser> _collectors = [];
   List<_AppUser> _physicians = [];
   List<_AppUser> _researchers = [];
+  List<_PatientSummary> _patients = [];
   _Stats? _stats;
+
+  // search for the records tab
+  final _recordSearchCtrl = TextEditingController();
+  String _recordFilter = '';
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 5, vsync: this);
+    _tabs = TabController(length: 6, vsync: this);
+    _recordSearchCtrl.addListener(
+      () =>
+          setState(() => _recordFilter = _recordSearchCtrl.text.toLowerCase()),
+    );
     _load();
   }
 
   @override
   void dispose() {
     _tabs.dispose();
+    _recordSearchCtrl.dispose();
     super.dispose();
   }
 
@@ -119,6 +186,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       // patients
       final patientDocs = await db.collection('patients').get();
       final patients = patientDocs.docs.map((d) => d.data()).toList();
+      final patientList = patientDocs.docs
+          .map((d) => _PatientSummary.fromMap(d.id, d.data()))
+          .toList();
 
       // build stats
       int diagnosed = 0;
@@ -163,6 +233,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         _collectors = users.where((u) => u.role == 'collector').toList();
         _physicians = users.where((u) => u.role == 'physician').toList();
         _researchers = users.where((u) => u.role == 'researcher').toList();
+        _patients = patientList;
         _stats = _Stats(
           total: patients.length,
           diagnosed: diagnosed,
@@ -182,6 +253,178 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       });
     }
   }
+
+  // delete single patient
+  Future<void> _deletePatient(_PatientSummary patient) async {
+    final confirm = await _confirmDialog(
+      title: 'Delete Patient Record',
+      message:
+          'Permanently delete the record for '
+          '${patient.fullName} (${patient.idNumber})?\n\n'
+          'This will also remove any associated photos from storage. '
+          'This cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await FirestoreService().deletePatient(patient.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${patient.fullName} deleted.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Delete failed: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  // clear entire database
+  Future<void> _clearDatabase() async {
+    // double confirmation for nuclear action
+    final confirm1 = await _confirmDialog(
+      title: 'Clear Entire Database',
+      message:
+          'This will permanently delete ALL ${_patients.length} patient '
+          'records and their photos from database.\n\n'
+          'User accounts will NOT be deleted.\n\n'
+          'This action CANNOT be undone.',
+      confirmLabel: 'Continue',
+      destructive: true,
+    );
+
+    if (confirm1 != true) return;
+
+    final confirm2 = await _confirmDialog(
+      title: 'Are you absolutely sure?',
+      message:
+          'Type-confirm: you are about to wipe ALL patient data. '
+          'This is irreversible.',
+      confirmLabel: 'Yes, delete everything',
+      destructive: true,
+    );
+
+    if (confirm2 != true) return;
+
+    setState(() => _clearingDb = true);
+    try {
+      final count = await FirestoreService().clearAllPatients();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$count records deleted.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+      await _load();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Clear failed: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _clearingDb = false);
+    }
+  }
+
+  // delete user
+  Future<void> _deleteUser(_AppUser user) async {
+    final confirm = await _confirmDialog(
+      title: 'Remove User',
+      message:
+          'Remove ${user.name} (${user.role}) from the system?\n\n'
+          'Their collected records will remain in the database.',
+      confirmLabel: 'Remove',
+      destructive: true,
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await FirestoreService().deleteUser(user.uid);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${user.name} removed.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  // reusable confirm dialog
+  Future<bool?> _confirmDialog({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    bool destructive = false,
+  }) => showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          if (destructive)
+            Icon(Icons.warning_rounded, color: Colors.red.shade600, size: 20),
+          if (destructive) const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+      content: Text(
+        message,
+        style: TextStyle(fontSize: 13, color: AppColors.textMid),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: TextButton.styleFrom(
+            foregroundColor: destructive ? Colors.red : AppColors.navy,
+          ),
+          child: Text(
+            confirmLabel,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
+    ),
+  );
 
   // export stats pdf
   Future<void> _exportStatsPdf() async {
@@ -412,7 +655,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   );
 
   // delete user
-  Future<void> _deleteUser(_AppUser user) async {
+  /*  Future<void> _deleteUser(_AppUser user) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -459,7 +702,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         );
       }
     }
-  }
+  } */
 
   Map<String, dynamic> _parseJson(String s) {
     try {
@@ -467,6 +710,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     } catch (_) {
       return {};
     }
+  }
+
+  // filtered patients
+  List<_PatientSummary> get _filteredPatients {
+    if (_recordFilter.isEmpty) return _patients;
+    return _patients
+        .where(
+          (p) =>
+              p.fullName.toLowerCase().contains(_recordFilter) ||
+              p.idNumber.toLowerCase().contains(_recordFilter) ||
+              p.facility.toLowerCase().contains(_recordFilter),
+        )
+        .toList();
   }
 
   // build
@@ -488,7 +744,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Admin\nDashboard', style: t.pageTitle),
+                        Text('Oversight', style: t.pageTitle),
                         const SizedBox(height: 2),
                         LiveClock(
                           style: TextStyle(
@@ -525,7 +781,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     shape: const CircleBorder(),
                     child: InkWell(
                       customBorder: const CircleBorder(),
-                      onTap: _load,
+                      onTap: _loading ? null : _load,
                       child: const Padding(
                         padding: EdgeInsets.all(12),
                         child: Icon(
@@ -558,6 +814,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 tabs: [
                   const Tab(text: 'Overview'),
                   const Tab(text: 'Statistics'),
+                  Tab(text: 'Records (${_patients.length})'),
                   Tab(text: 'Collectors (${_collectors.length})'),
                   Tab(text: 'Physicians (${_physicians.length})'),
                   Tab(text: 'Researchers (${_researchers.length})'),
@@ -575,6 +832,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       children: [
                         _OverviewTab(stats: _stats!),
                         _StatisticsTab(stats: _stats!),
+                        _RecordsTab(
+                          patients: _filteredPatients,
+                          searchCtrl: _recordSearchCtrl,
+                          totalCount: _patients.length,
+                          onDelete: _deletePatient,
+                          onClearAll: _clearDatabase,
+                          clearingDb: _clearingDb,
+                        ),
                         _UserListTab(
                           users: _collectors,
                           emptyMessage: 'No collectors yet.',
@@ -615,7 +880,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     icon: _exportingStats
                         ? Icons.hourglass_empty_rounded
                         : Icons.ios_share_rounded,
-
                     onTap: _exportingStats ? () {} : _exportStatsPdf,
                     bgColor: AppColors.saveRed,
                     size: 52,
@@ -625,6 +889,283 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RecordsTab extends StatelessWidget {
+  final List<_PatientSummary> patients;
+  final TextEditingController searchCtrl;
+  final int totalCount;
+  final void Function(_PatientSummary) onDelete;
+  final VoidCallback onClearAll;
+  final bool clearingDb;
+
+  const _RecordsTab({
+    required this.patients,
+    required this.searchCtrl,
+    required this.totalCount,
+    required this.onDelete,
+    required this.onClearAll,
+    required this.clearingDb,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // search + clear-all header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+          child: Row(
+            children: [
+              // search field
+              Expanded(
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.fieldBg,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: TextField(
+                    controller: searchCtrl,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Search records...',
+                      hintStyle: TextStyle(
+                        color: AppColors.textMid,
+                        fontSize: 14,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        size: 18,
+                        color: AppColors.textMid,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // clear all button
+              Material(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(30),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(30),
+                  onTap: clearingDb ? null : onClearAll,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    child: clearingDb
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.red.shade700,
+                            ),
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.delete_sweep_rounded,
+                                size: 16,
+                                color: Colors.red.shade700,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Clear All',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.red.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // count row
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              Text(
+                patients.length == totalCount
+                    ? '$totalCount records'
+                    : '${patients.length} of $totalCount',
+                style: TextStyle(fontSize: 12, color: AppColors.textMid),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // List
+        Expanded(
+          child: patients.isEmpty
+              ? Center(
+                  child: Text(
+                    'No records found.',
+                    style: TextStyle(color: AppColors.textMid, fontSize: 14),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                  itemBuilder: (_, i) => _RecordCard(
+                    patient: patients[i],
+                    onDelete: () => onDelete(patients[i]),
+                  ),
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemCount: patients.length,
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// record card
+class _RecordCard extends StatelessWidget {
+  final _PatientSummary patient;
+  final VoidCallback onDelete;
+
+  const _RecordCard({required this.patient, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // status dot
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: patient.hasDiagnosis
+                  ? AppColors.success
+                  : Colors.orange.shade500,
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  patient.fullName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: AppColors.textNavy,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  patient.idNumber,
+                  style: TextStyle(fontSize: 11, color: AppColors.textMid),
+                ),
+                Text(
+                  patient.facility,
+                  style: TextStyle(fontSize: 11, color: AppColors.textMid),
+                ),
+              ],
+            ),
+          ),
+
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color:
+                      (patient.hasDiagnosis
+                              ? AppColors.success
+                              : Colors.orange.shade500)
+                          .withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  patient.hasDiagnosis ? 'Diagnosed' : 'Pending',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: patient.hasDiagnosis
+                        ? AppColors.success
+                        : Colors.orange.shade700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                patient.formattedDate,
+                style: TextStyle(fontSize: 10, color: AppColors.textMid),
+              ),
+              const SizedBox(height: 6),
+
+              // delete button
+              Material(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  onTap: onDelete,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.delete_rounded,
+                          size: 12,
+                          color: Colors.red.shade700,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Delete',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.red.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

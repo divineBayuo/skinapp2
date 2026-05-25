@@ -148,6 +148,39 @@ class FirestoreService {
     // deleting from firebase auth requires admin sdk(server-side)
   }
 
+  // delete a single patient record
+  Future<void> deletePatient(String patientId) async {
+    // delete firestore doc
+    await _patients.doc(patientId).delete();
+
+    // also delete any associated photos from storage
+    try {
+      final ref = _storage.ref().child('patient_photos').child(patientId);
+      final list = await ref.listAll();
+      for (final item in list.items) {
+        await item.delete();
+      }
+    } catch (e) {
+      // photos may not exist - not fatal
+      debugPrint('FirestoreService.deletePatient: no photos to delete: $e');
+    }
+  }
+
+  // Delete all patients records (nuclear option - admin only)
+  Future<int> clearAllPatients() async {
+    final snap = await _patients.get();
+    int count = 0;
+    for (final doc in snap.docs) {
+      try {
+        await deletePatient(doc.id);
+        count++;
+      } catch (e) {
+        debugPrint('clearAllPatients: failed on ${doc.id}: $e');
+      }
+    }
+    return count;
+  }
+
   // optional realtime stream
   Stream<List<PatientRecord>> streamPatients() {
     return _patients

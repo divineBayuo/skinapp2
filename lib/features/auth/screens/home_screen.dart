@@ -175,7 +175,7 @@ class _HomeTab extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // Quick actions
-            Text('Quick Actions', style: t.titleMedium),
+            Text('Available Actions', style: t.titleMedium),
             const SizedBox(height: 12),
             if (role == AccessRole.collector)
               _QuickActionCard(
@@ -240,7 +240,7 @@ class _HomeTab extends ConsumerWidget {
                       ),
                       const SizedBox(width: 3),
                       Text(
-                        'Dashboard',
+                        'Oversight',
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ],
@@ -283,7 +283,7 @@ class _HomeTab extends ConsumerWidget {
               ),
             ],
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 30),
 
             Center(
               child: InkWell(
@@ -299,19 +299,25 @@ class _HomeTab extends ConsumerWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppColors.navy, width: 2),
-                    color: AppColors.navy
+                    color: AppColors.navy,
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
                         'Admin? Go to',
-                        style: TextStyle(fontStyle: FontStyle.italic, color: AppColors.roleCollector),
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: AppColors.roleCollector,
+                        ),
                       ),
                       const SizedBox(width: 3),
                       Text(
-                        'Dashboard',
-                        style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.successBg),
+                        'Oversight',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.successBg,
+                        ),
                       ),
                     ],
                   ),
@@ -482,11 +488,11 @@ class _QuickActionCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
+            /* const Icon(
               Icons.chevron_right_rounded,
               color: AppColors.textHint,
               size: 20,
-            ),
+            ), */
           ],
         ),
       ),
