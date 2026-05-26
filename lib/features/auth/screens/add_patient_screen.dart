@@ -621,7 +621,7 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       );
       if (success) {
         // capture paths before resetting
-        final savedPaths = List<String>.from(_lesionPhotos.map((f) => f.path));
+        //final savedPaths = List<String>.from(_lesionPhotos.map((f) => f.path));
 
         _resetForm();
         // increment recordCount
