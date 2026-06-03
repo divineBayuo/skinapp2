@@ -334,21 +334,25 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
     // setState(() => _locationCtrl.text = '5.6037168, -0.6914456');
     setState(() => _locating = true);
     final coords = await LocationService().getCurrentCoords();
+
+    if (!mounted) return;
+
     setState(() {
       _locating = false;
-      if (coords != null) {
-        _locationCtrl.text = coords;
-      } else {
-        // show a snackbar, avoid silent fail
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Could not get location. Check that location services are enabled.',
-            ),
-          ),
-        );
-      }
     });
+
+    if (coords != null) {
+      _locationCtrl.text = coords;
+    } else {
+      // show a snackbar, avoid silent fail
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to determine location.',
+          ),
+        ),
+      );
+    }
   }
 
   // date pickers
