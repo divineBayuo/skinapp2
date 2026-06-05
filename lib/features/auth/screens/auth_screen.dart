@@ -67,15 +67,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                         color: AppColors.teal.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(
+                      child: /* const Icon(
                         Icons.biotech_rounded,
                         color: AppColors.teal,
                         size: 20,
+                      ), */ Image.asset(
+                        'assets/icon/skinapp_logo.png',
+                        width: 250,
+                        height: 250,
                       ),
                     ),
                     const SizedBox(width: 10),
                     const Text(
-                      'SKiN NTD',
+                      'SKiNAPP',
                       style: TextStyle(
                         fontFamily: 'Nunito',
                         fontSize: 18,

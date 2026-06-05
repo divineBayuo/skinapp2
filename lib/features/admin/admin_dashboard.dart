@@ -69,7 +69,10 @@ class _PatientSummary {
   final String idNumber;
   final String collectorId;
   final String facility;
+  final String community;
   final String collectedAt;
+  final String sentAt;
+  final String receivedAt;
   final bool hasDiagnosis;
 
   const _PatientSummary({
@@ -78,20 +81,37 @@ class _PatientSummary {
     required this.idNumber,
     required this.collectorId,
     required this.facility,
+    required this.community,
     required this.collectedAt,
+    required this.sentAt,
+    required this.receivedAt,
     required this.hasDiagnosis,
   });
 
-  factory _PatientSummary.fromMap(String id, Map<String, dynamic> m) =>
-      _PatientSummary(
-        id: id,
-        fullName: m['fullName'] as String? ?? 'Unknown',
-        idNumber: m['idNumber'] as String? ?? id,
-        collectorId: m['collectorId'] as String? ?? '',
-        facility: m['facilityName'] as String? ?? '-',
-        collectedAt: m['collectedAt'] as String? ?? '',
-        hasDiagnosis: m['diagnosis'] != null,
-      );
+  factory _PatientSummary.fromMap(String id, Map<String, dynamic> m) {
+    String parseTs(dynamic v) {
+      if (v == null) return '';
+      if (v is String) return v;
+      try {
+        return (v as dynamic).toDate().toIso8601String();
+      } catch (_) {
+        return '';
+      }
+    }
+
+    return _PatientSummary(
+      id: id,
+      fullName: m['fullName'] as String? ?? 'Unknown',
+      idNumber: m['idNumber'] as String? ?? id,
+      collectorId: m['collectorId'] as String? ?? '',
+      facility: m['facilityName'] as String? ?? '-',
+      community: m['community'] as String? ?? '',
+      collectedAt: m['collectedAt'] as String? ?? '',
+      sentAt: parseTs(m['sentAt']),
+      receivedAt: parseTs(m['receivedAt']),
+      hasDiagnosis: m['diagnosis'] != null,
+    );
+  }
 
   String get formattedDate {
     try {
@@ -115,6 +135,36 @@ class _PatientSummary {
       return collectedAt;
     }
   }
+
+  String _fmtTs(String iso) {
+    if (iso.isEmpty) return '-';
+    try {
+      final d = DateTime.parse(iso);
+      const mo = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return '${d.day} ${mo[d.month - 1]} ${d.year} '
+          '${d.hour.toString().padLeft(2, '0')}:'
+          '${d.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  String get formattedSentAt => _fmtTs(sentAt);
+  String get formattedReceivedAt =>
+      receivedAt.isEmpty ? 'Pending sync' : _fmtTs(receivedAt);
 }
 
 class _Stats {
@@ -551,6 +601,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
+            /* pw.Image.asset(
+              'assets/icon/skinapp_logo.png',
+              width: 400,
+              height: 400,
+            ), */
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
@@ -1150,9 +1205,48 @@ class _RecordCard extends StatelessWidget {
                   patient.idNumber,
                   style: TextStyle(fontSize: 11, color: AppColors.textMid),
                 ),
+                if (patient.community.isNotEmpty)
+                  Text(
+                    patient.community,
+                    style: TextStyle(fontSize: 11, color: AppColors.textMid),
+                  ),
                 Text(
                   patient.facility,
                   style: TextStyle(fontSize: 11, color: AppColors.textMid),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.upload_rounded,
+                      size: 10,
+                      color: AppColors.textMid,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      'Sent: ${patient.formattedSentAt}',
+                      style: TextStyle(fontSize: 10, color: AppColors.textMid),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.download_rounded,
+                      size: 10,
+                      color: AppColors.tealDeep,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      'Received: ${patient.formattedReceivedAt}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: patient.receivedAt.isEmpty
+                            ? Colors.orange.shade700
+                            : AppColors.tealDeep,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

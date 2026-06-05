@@ -73,6 +73,9 @@ dependencies:
   latlong2: ^0.9.1
   printing: ^5.14.3
   firebase_app_check: ^0.4.4+1
+  geocoding: ^4.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
 
 dev_dependencies:
   flutter_test:
@@ -95,6 +98,35 @@ dev_dependencies:
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
+flutter_native_splash:
+  color: "#0D1B3E"
+  image: assets/icon/skinapp_logo.png
+
+  android_12:
+    image: assets/icon/skinapp_logo.png
+    color: "#0D1B3E"
+
+# pubspec.yaml — add at root level (not under flutter:):
+flutter_launcher_icons:
+  android:           true
+  ios:               true
+  image_path:        "assets/icon/skinapp_logo.png"
+  min_sdk_android:   21
+
+  # Android adaptive icon (API 26+) — foreground + background
+  adaptive_icon_foreground: "assets/icon/skinapp_logo.png"
+  adaptive_icon_background: "#0D1B3E"   # your navy colour
+
+  # iOS
+  remove_alpha_ios: true   # App Store rejects icons with transparency
+
+  # Web (if you ever add web support)
+  web:
+    generate: true
+    image_path: "assets/icon/skinapp_logo.png"
+    background_color: "#0D1B3E"
+    theme_color:      "#0D1B3E"
+
 # The following section is specific to Flutter packages.
 flutter:
 
@@ -107,6 +139,7 @@ flutter:
   assets:
     - assets/fonts/
     - assets/images/
+    - assets/icon/skinapp_logo.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

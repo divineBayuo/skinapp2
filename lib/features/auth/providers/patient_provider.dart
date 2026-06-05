@@ -154,6 +154,26 @@ class PatientNotifier extends StateNotifier<PatientState> {
       if (state.online) {
         await _remote.upsertPatient(record);
         await _local.markSynced(record.id);
+
+        // re-fetch the record from Firestore to get the server-set receivedAt
+        // then update the local sqlite copy
+        try {
+          final doc = await FirebaseFirestore.instance
+              .collection('patients')
+              .doc(record.id)
+              .get();
+          if (doc.exists && doc.data() != null) {
+            final updated = PatientRecord.fromMap({
+              'id': doc.id,
+              ...doc.data()!,
+            });
+            await _local.upsertPatient(updated, synced: true);
+          } else {
+            await _local.markSynced(record.id);
+          }
+        } catch (_) {
+          await _local.markSynced(record.id);
+        }
         // increment collector's record count in Firestore
         await FirebaseFirestore.instance
             .collection('users')

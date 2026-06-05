@@ -696,10 +696,38 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                 fullWidth: true,
               ),
               const SizedBox(height: 12),
+              if (p.community.isNotEmpty)
+                _InfoRow(
+                  label: 'Community',
+                  value: p.community,
+                  fullWidth: true,
+                ),
+              const SizedBox(height: 12),
               _InfoRow(
                 label: 'Facility',
                 value: p.facilityName,
                 fullWidth: true,
+              ),
+              const SizedBox(height: 12),
+              const _SectionHeader(
+                title: 'Transmission',
+                icon: Icons.swap_horiz_rounded,
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _InfoRow(
+                      label: 'Sent by Collector',
+                      value: p.formattedSentAt,
+                    ),
+                  ),
+                  Expanded(
+                    child: _InfoRow(
+                      label: 'Received by System',
+                      value: p.formattedReceivedAt,
+                    ),
+                  ),
+                ],
               ),
 
               // ── Section B ─────────────────────────────────────────────────

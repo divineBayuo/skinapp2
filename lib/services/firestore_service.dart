@@ -99,6 +99,12 @@ class FirestoreService {
     map['photoUrls'] = cloudUrls;
     map['clinicalNotes'] = jsonEncode(clinical);
 
+    // set receivedAt to the server clock at the moment of write
+    // FieldValue.serverTimestamp() is set by Firestore itself
+    // it is NOT the client clock, so it accurately reflects when
+    // the record arrived at the server regardless of client time drift
+    map['receivedAt'] = FieldValue.serverTimestamp();
+
     await _patients.doc(patient.id).set(map);
     debugPrint('✅ Patient record saved to Firestore: ${patient.id}');
   }

@@ -169,6 +169,8 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
   final _emergContactCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
+  final _communityCtrl = TextEditingController();
+
   String? _selectedSex;
   static const _sexOptions = ['Male', 'Female'];
 
@@ -295,6 +297,7 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       _fullNameCtrl,
       _idCtrl,
       _locationCtrl,
+      _communityCtrl,
       _dobCtrl,
       _phoneCtrl,
       _emergNameCtrl,
@@ -333,26 +336,24 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
     // In production: use geolocator
     // setState(() => _locationCtrl.text = '5.6037168, -0.6914456');
     setState(() => _locating = true);
-    final coords = await LocationService().getCurrentCoords();
-
-    if (!mounted) return;
-
+    final result = await LocationService().getCurrentLocation();
     setState(() {
       _locating = false;
-    });
-
-    if (coords != null) {
-      _locationCtrl.text = coords;
-    } else {
-      // show a snackbar, avoid silent fail
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Unable to determine location.',
+      if (result != null) {
+        _locationCtrl.text = result.coords;
+        _communityCtrl.text = result.community;
+      } else {
+        // show a snackbar, avoid silent fail
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not get location. '
+              'Check that location services are enabled.',
+            ),
           ),
-        ),
-      );
-    }
+        );
+      }
+    });
   }
 
   // date pickers
@@ -581,12 +582,15 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       '📸 clinicalData localPhotoPaths: ${clinicalData['localPhotoPaths']}',
     );
 
+    final sentAt = now;
+
     final record = PatientRecord(
       id: idNo,
       idNumber: idNo,
       locationCoords: _locationCtrl.text == 'Tap to generate'
           ? ''
           : _locationCtrl.text,
+      community: _communityCtrl.text.trim(),
       fullName: _fullNameCtrl.text.trim(),
       dateOfBirth: dob,
       phone: _phoneCtrl.text.trim(),
@@ -599,6 +603,8 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       facilityName: currentUser.facilityName ?? 'Unknown Facility',
       collectedAt: now,
       updatedAt: now,
+      sentAt: sentAt,
+      // receivedAt set by FirestoreService after confirmed write
     );
 
     // save via provider (handles offline + online)
@@ -792,6 +798,20 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
                             size: 16,
                             color: AppColors.tealDeep,
                           ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Community - auto-filled by reverse geocoding, read-only
+              AbsorbPointer(
+                child: PillField(
+                  controller: _communityCtrl,
+                  hint: 'Community (auto-detected with location)',
+                  suffixIcon: const Icon(
+                    Icons.location_city_rounded,
+                    size: 16,
+                    color: AppColors.tealDeep,
                   ),
                 ),
               ),

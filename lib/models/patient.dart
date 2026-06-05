@@ -10,6 +10,7 @@ class PatientRecord {
   // auto gen fields
   final String idNumber;
   final String locationCoords;
+  final String community;
 
   // collector-entered fields
   final String fullName;
@@ -29,6 +30,9 @@ class PatientRecord {
   final DateTime collectedAt;
   final DateTime updatedAt;
 
+  final DateTime? sentAt;
+  final DateTime? receivedAt;
+
   // Physician-added diagnosis
   final Diagnosis? diagnosis;
 
@@ -36,6 +40,7 @@ class PatientRecord {
     required this.id,
     required this.idNumber,
     required this.locationCoords,
+    this.community = '',
     required this.fullName,
     required this.dateOfBirth,
     required this.phone,
@@ -48,6 +53,8 @@ class PatientRecord {
     required this.facilityName,
     required this.collectedAt,
     required this.updatedAt,
+    this.sentAt,
+    this.receivedAt,
     this.diagnosis,
   });
 
@@ -98,6 +105,21 @@ class PatientRecord {
     return '${dateOfBirth.day.toString().padLeft(2, '0')}-${months[dateOfBirth.month - 1]}- ${dateOfBirth.year}';
   }
 
+  static const _months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
   String get formattedTimestamp {
     final d = collectedAt;
     final months = [
@@ -119,22 +141,67 @@ class PatientRecord {
     return '${d.day}-${months[d.month - 1]}-${d.year} | $h:$m';
   }
 
+  // NEW: formatted sent timestamp
+  String get formattedSentAt {
+    if (sentAt == null) return '—';
+    final d = sentAt!;
+    final h = d.hour.toString().padLeft(2, '0');
+    final m = d.minute.toString().padLeft(2, '0');
+    return '${d.day}-${_months[d.month - 1]}-${d.year} $h:$m';
+  }
+
+  // NEW: formatted received timestamp
+  String get formattedReceivedAt {
+    if (receivedAt == null) return 'Pending sync';
+    final d = receivedAt!;
+    final h = d.hour.toString().padLeft(2, '0');
+    final m = d.minute.toString().padLeft(2, '0');
+    return '${d.day}-${_months[d.month - 1]}-${d.year} $h:$m';
+  }
+
+  static DateTime? _parseTimestamp(dynamic value) {
+    if (value == null) return null;
+    // Firestore Timestamp object when read back from Firestore
+    if (value is Map && value.containsKey('_seconds')) {
+      return DateTime.fromMillisecondsSinceEpoch(
+        (value['_seconds'] as int) * 1000,
+      );
+    }
+
+    // already a string when read from sqlite
+    if (value is String) return DateTime.tryParse(value);
+    // cloud_firestore Timestamp type
+    try {
+      // ignore: avoid dynamic calls
+      return (value as dynamic).toDate() as DateTime;
+    } catch (_) {
+      return null;
+    }
+  }
+
   factory PatientRecord.fromMap(Map<String, dynamic> m) => PatientRecord(
     id: m['id'] as String? ?? '',
     idNumber: m['idNumber'] as String? ?? '',
     locationCoords: m['locationCoords'] as String? ?? '',
+    community: m['community'] as String? ?? '',
     fullName: m['fullName'] as String? ?? '',
     dateOfBirth: DateTime.parse(m['dateOfBirth'] as String),
     phone: m['phone'] as String? ?? '',
     sex: m['sex'] as String? ?? '',
     emergencyName: m['emergencyName'] as String? ?? '',
     emergencyContact: m['emergencyContact'] as String? ?? '',
-    photoUrls: (m['photoUrls'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [],
+    photoUrls:
+        (m['photoUrls'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+        [],
     clinicalNotes: m['clinicalNotes'] as String? ?? '',
     collectorId: m['collectorId'] as String? ?? '',
     facilityName: m['facilityName'] as String? ?? '',
     collectedAt: DateTime.parse(m['collectedAt'] as String),
     updatedAt: DateTime.parse(m['updatedAt'] as String),
+    sentAt: m['sentAt'] != null
+        ? DateTime.tryParse(m['sentAt'] as String)
+        : null,
+    receivedAt: _parseTimestamp(m['receivedAt']),
     diagnosis: m['diagnosis'] != null
         ? Diagnosis.fromMap(m['diagnosis'] as Map<String, dynamic>)
         : null,
@@ -144,6 +211,7 @@ class PatientRecord {
     'id': id,
     'idNumber': idNumber,
     'locationCoords': locationCoords,
+    'community': community,
     'fullName': fullName,
     'dateOfBirth': dateOfBirth.toIso8601String(),
     'phone': phone,
@@ -156,6 +224,8 @@ class PatientRecord {
     'facilityName': facilityName,
     'collectedAt': collectedAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
+    'sentAt': sentAt?.toIso8601String(),
+    'receivedAt': receivedAt?.toIso8601String(),
     'diagnosis': diagnosis?.toMap(),
   };
 }
