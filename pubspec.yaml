@@ -100,10 +100,10 @@ dev_dependencies:
 
 flutter_native_splash:
   color: "#0D1B3E"
-  image: assets/icon/skinapp_logo.png
+  image: assets/icon/skinapp_logo_launcher.png
 
   android_12:
-    image: assets/icon/skinapp_logo.png
+    image: assets/icon/skinapp_logo_launcher.png
     color: "#0D1B3E"
 
 # pubspec.yaml — add at root level (not under flutter:):
@@ -140,6 +140,8 @@ flutter:
     - assets/fonts/
     - assets/images/
     - assets/icon/skinapp_logo.png
+    - assets/icon/skinapp_logo_launcher.png
+    - assets/icon/skinapp_logo_icon.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

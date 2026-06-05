@@ -72,7 +72,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                         color: AppColors.teal,
                         size: 20,
                       ), */ Image.asset(
-                        'assets/icon/skinapp_logo.png',
+                        'assets/icon/skinapp_logo_icon.png',
                         width: 250,
                         height: 250,
                       ),

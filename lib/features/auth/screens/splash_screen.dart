@@ -117,12 +117,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       Icons.biotech_rounded,
                       size: 52,
                       color: Color(0xFF7FECDC),
-                    ), */
-                    Image.asset(
-                        'assets/icon/skinapp_logo.png',
-                        width: 500,
-                        height: 500,
+                    ), */ ClipRRect(
+                      borderRadius: BorderRadius.circular(80),
+                      child: Image.asset(
+                        'assets/icon/skinapp_logo_icon.png',
+                        width: 150,
+                        height: 150,
+                        fit: BoxFit.cover,
                       ),
+                    ),
                   ),
                 ],
               ),
