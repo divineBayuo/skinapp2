@@ -208,4 +208,11 @@ class FirestoreService {
       return {};
     }
   }
+
+  Future<void> updateCommunity(String patientId, String community) async {
+    await _patients.doc(patientId).update({
+      'community': community,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
 }

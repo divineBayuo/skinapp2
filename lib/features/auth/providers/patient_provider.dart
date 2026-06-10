@@ -144,10 +144,17 @@ class PatientNotifier extends StateNotifier<PatientState> {
     }
   }
 
-  Future<bool> addRecord(PatientRecord record) async {
+  Future<bool> addRecord(
+    PatientRecord record, {
+    bool needsGeocoding = false,
+  }) async {
     try {
       // Save locally first (works offline)
-      await _local.upsertPatient(record, synced: state.online);
+      await _local.upsertPatient(
+        record,
+        synced: false,
+        needsGeocoding: needsGeocoding,
+      );
       // state = state.copyWith(records: [record, ...state.records]);
       await _refreshFromLocal();
 
@@ -167,7 +174,11 @@ class PatientNotifier extends StateNotifier<PatientState> {
               'id': doc.id,
               ...doc.data()!,
             });
-            await _local.upsertPatient(updated, synced: true);
+            await _local.upsertPatient(
+              updated,
+              synced: true,
+              needsGeocoding: needsGeocoding,
+            );
           } else {
             await _local.markSynced(record.id);
           }

@@ -1,10 +1,12 @@
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skinapp2/core/router/app_router.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
 import 'package:skinapp2/firebase_options.dart';
+import 'package:skinapp2/services/geocoding_retry_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,9 +16,17 @@ Future<void> main() async {
   // initialize app check before any other firebase service
   await FirebaseAppCheck.instance.activate(
     // using debug provider for emulators/dev builds
-    androidProvider: AndroidProvider.debug,   // change to playIntegrity for release
-    appleProvider: AppleProvider.debug,       // change to deviceCheck for release
+    androidProvider: kDebugMode
+        ? AndroidProvider.debug
+        : AndroidProvider.playIntegrity, // change to playIntegrity for release
+    appleProvider: kDebugMode
+        ? AppleProvider.debug
+        : AppleProvider.deviceCheck, // change to deviceCheck for release
   );
+
+  // start background geocoding retry - resolves community names
+  // for records captured offline, runs silently in the background
+  GeocodingRetryService().start();
 
   runApp(const ProviderScope(child: SkinNtdApp()));
 }

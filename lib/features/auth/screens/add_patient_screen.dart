@@ -170,6 +170,7 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _communityCtrl = TextEditingController();
+  bool _geocodingSucceeded = true;
 
   String? _selectedSex;
   static const _sexOptions = ['Male', 'Female'];
@@ -342,6 +343,23 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       if (result != null) {
         _locationCtrl.text = result.coords;
         _communityCtrl.text = result.community;
+
+        // track whether geocoding worked so we can flag the record
+        _geocodingSucceeded = result.geocodingSucceeded;
+
+        // tell the collector what happened
+        if (!result.geocodingSucceeded) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Location captured. Community name will be resolved '
+                'automatically when you reconnect.',
+              ),
+              backgroundColor: Colors.orange.shade700,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       } else {
         // show a snackbar, avoid silent fail
         ScaffoldMessenger.of(context).showSnackBar(
@@ -610,7 +628,7 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
     // save via provider (handles offline + online)
     final success = await ref
         .read(patientProvider(widget.role).notifier)
-        .addRecord(record);
+        .addRecord(record, needsGeocoding: !_geocodingSucceeded);
 
     if (mounted) {
       setState(() => _submitting = false);
@@ -674,6 +692,7 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
     _idCtrl.text = 'Tap to generate';
     _locationCtrl.text = 'Tap to generate';
     _lesionPhotos.clear();
+    _geocodingSucceeded = true;
     setState(() {
       _selectedSex = null;
       _modeOfDetection = null;
@@ -808,13 +827,49 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
                 child: PillField(
                   controller: _communityCtrl,
                   hint: 'Community (auto-detected with location)',
-                  suffixIcon: const Icon(
-                    Icons.location_city_rounded,
-                    size: 16,
-                    color: AppColors.tealDeep,
-                  ),
+                  suffixIcon:
+                      _communityCtrl.text.isEmpty &&
+                          _locationCtrl.text != 'Tap to generate'
+                      // Coords captured but geocoding pending
+                      ? Icon(
+                          Icons.hourglass_empty_rounded,
+                          size: 16,
+                          color: Colors.orange.shade600,
+                        )
+                      : const Icon(
+                          Icons.location_city_rounded,
+                          size: 16,
+                          color: AppColors.tealDeep,
+                        ),
                 ),
               ),
+              // Pending badge
+              if (_communityCtrl.text.isEmpty &&
+                  _locationCtrl.text != 'Tap to generate')
+                Positioned(
+                  right: 12,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Will resolve on reconnect',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 12),
 
               // Date of Birth

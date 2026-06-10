@@ -21,15 +21,24 @@ class LocalDbService {
     final path = join(await getDatabasesPath(), 'skinapp.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, _) => db.execute('''
                 CREATE TABLE patients (
                     id TEXT PRIMARY KEY,
                     data TEXT NOT NULL,
                     synced INTEGER NOT NULL DEFAULT 0,
+                    needs_geocoding INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL
                 )
             '''),
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // Existing installs: add new column
+          await db.execute(
+            'ALTER TABLE patients ADD COLUMN needs_geocoding INTEGER NOT NULL DEFAULT 0',
+          );
+        }
+      },
     );
   }
 
@@ -45,12 +54,17 @@ class LocalDbService {
   }
 
   // --- WRITE ----------------------
-  Future<void> upsertPatient(PatientRecord p, {bool synced = false}) async {
+  Future<void> upsertPatient(
+    PatientRecord p, {
+    bool synced = false,
+    bool needsGeocoding = false,
+  }) async {
     final d = await db;
     await d.insert('patients', {
       'id': p.id,
       'data': jsonEncode(p.toMap()),
       'synced': synced ? 1 : 0,
+      'needs_geocoding': needsGeocoding ? 1 : 0,
       'created_at': p.collectedAt.toIso8601String(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
@@ -58,6 +72,22 @@ class LocalDbService {
   Future<void> markSynced(String id) async {
     final d = await db;
     await d.update('patients', {'synced': 1}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> markGeocoded(String id, String community) async {
+    final d = await db;
+    // read current data, update community, write back
+    final rows = await d.query('patients', where: 'id=?', whereArgs: [id]);
+    if (rows.isEmpty) return;
+    final map =
+        jsonDecode(rows.first['data'] as String) as Map<String, dynamic>;
+    map['community'] = community;
+    await d.update(
+      'patients',
+      {'data': jsonEncode(map), 'needs_geocoding': 0},
+      where: 'id=?',
+      whereArgs: [id],
+    );
   }
 
   // --- Read ----------------------
@@ -103,6 +133,17 @@ class LocalDbService {
       } catch (_) {}
     }
     return result; */
+    return rows.map(_tryParse).whereType<PatientRecord>().toList();
+  }
+
+  // records whose community name still needs geocoding
+  Future<List<PatientRecord>> getNeedsGeocoding() async {
+    final d = await db;
+    final rows = await d.query(
+      'patients',
+      where: 'needs_geocoding = 1',
+      orderBy: 'created_at ASC',
+    );
     return rows.map(_tryParse).whereType<PatientRecord>().toList();
   }
 }

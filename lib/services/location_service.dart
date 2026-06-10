@@ -5,8 +5,13 @@ import 'package:geolocator/geolocator.dart';
 class LocationResult {
   final String coords; // lat, lng
   final String community; // reverse-geocoded locality
+  final bool geocodingSucceeded; // flag retry or not
 
-  const LocationResult({required this.coords, required this.community});
+  const LocationResult({
+    required this.coords,
+    required this.community,
+    required this.geocodingSucceeded,
+  });
 }
 
 class LocationService {
@@ -41,6 +46,8 @@ class LocationService {
 
     // 4. reverse geocode to get community name
     String community = '';
+    bool geocodingSucceeded = false;
+
     try {
       final placemarks = await placemarkFromCoordinates(
         pos.latitude,
@@ -55,12 +62,17 @@ class LocationService {
           p.locality,
           p.subAdministrativeArea,
         ].where((s) => s != null && s.isNotEmpty).join(', ');
+        geocodingSucceeded = community.isNotEmpty;
       }
     } catch (e) {
       // reverse geocoding is best-effort - not fatal if it fails
       debugPrint('LocationService: reverse geocoding failed: $e');
     }
-    return LocationResult(coords: coords, community: community);
+    return LocationResult(
+      coords: coords,
+      community: community,
+      geocodingSucceeded: geocodingSucceeded,
+    );
   }
 
   // return coords as "lat, lng" string, or null or failure
