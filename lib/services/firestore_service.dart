@@ -215,4 +215,20 @@ class FirestoreService {
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
+
+  Future<void> updateSampleTimestamps(String patientId, {DateTime? samplesCollectedAt, DateTime? samplesReceivedAt}) async {
+    final data = <String, dynamic>{
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+
+    if (samplesCollectedAt != null) {
+      data['samplesCollectedAt'] = samplesCollectedAt.toIso8601String();
+    }
+
+    if (samplesReceivedAt != null) {
+      data['samplesReceivedAt'] = samplesReceivedAt.toIso8601String();
+    }
+
+    await _patients.doc(patientId).update(data);
+  }
 }

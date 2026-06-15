@@ -19,6 +19,7 @@ import 'package:skinapp2/services/location_service.dart';
 import 'package:skinapp2/services/photo_service.dart';
 import 'package:skinapp2/shared/widgets/circular_action_btn.dart';
 import 'package:skinapp2/shared/widgets/pill_field.dart';
+import 'package:skinapp2/shared/widgets/sample_checkbox.dart';
 
 // --- Helper section header ----------------------
 class _SectionHeader extends StatelessWidget {
@@ -160,6 +161,10 @@ class AddPatientScreen extends ConsumerStatefulWidget {
 }
 
 class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
+  bool _samplesCollected = false;
+  DateTime? _samplesCollectedAt;
+
+  // section a
   final _fullNameCtrl = TextEditingController();
   final _idCtrl = TextEditingController(text: 'Tap to generate');
   final _locationCtrl = TextEditingController(text: 'Tap to generate');
@@ -245,7 +250,7 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
   // Progress: 0.0 -> 1.0 as fields are filled
   double _progress = 0.0;
   bool _submitting = false;
-  static const int _totalFields = 15;
+  static const int _totalFields = 16;
 
   @override
   void initState() {
@@ -267,6 +272,8 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
 
   void _updateProgress() {
     int filled = 0;
+
+    if (_samplesCollected) filled++;
 
     // section a
     if (_fullNameCtrl.text.isNotEmpty) filled++;
@@ -600,8 +607,6 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       '📸 clinicalData localPhotoPaths: ${clinicalData['localPhotoPaths']}',
     );
 
-    final sentAt = now;
-
     final record = PatientRecord(
       id: idNo,
       idNumber: idNo,
@@ -621,7 +626,8 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
       facilityName: currentUser.facilityName ?? 'Unknown Facility',
       collectedAt: now,
       updatedAt: now,
-      sentAt: sentAt,
+      // sentAt: sentAt,
+      samplesCollectedAt: _samplesCollectedAt,
       // receivedAt set by FirestoreService after confirmed write
     );
 
@@ -693,7 +699,9 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
     _locationCtrl.text = 'Tap to generate';
     _lesionPhotos.clear();
     _geocodingSucceeded = true;
+    _samplesCollected = false;
     setState(() {
+      _samplesCollectedAt = null;
       _selectedSex = null;
       _modeOfDetection = null;
       _classification = null;
@@ -936,6 +944,32 @@ class _AddPatientScreenState extends ConsumerState<AddPatientScreen> {
                 hint: 'Emergency Contact Number',
                 keyboardType: TextInputType.phone,
                 validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 20),
+
+              // samples collected checkbox
+              SampleCheckbox(
+                label: 'Samples Collected',
+                sublabel: 'Mark when physical samples are taken from the patient',
+                checked: _samplesCollected,
+                checkedAt: _samplesCollectedAt,
+                editable: true,
+                onChanged: (ticked) {
+                  setState(() {
+                    _samplesCollected = ticked;
+                    _samplesCollectedAt = ticked ? DateTime.now() : null;
+                  });
+                  _updateProgress();
+                }
+              ),
+
+              SampleCheckbox(
+                label: 'Samples Received by Physician',
+                sublabel: 'Marked by the physician upon receipt',
+                checked: false,
+                checkedAt: null,
+                editable: false,
+                onChanged: null,
               ),
 
               /* const SizedBox(height: 28),

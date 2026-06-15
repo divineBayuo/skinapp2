@@ -30,8 +30,8 @@ class PatientRecord {
   final DateTime collectedAt;
   final DateTime updatedAt;
 
-  final DateTime? sentAt;
-  final DateTime? receivedAt;
+  final DateTime? samplesCollectedAt;
+  final DateTime? samplesReceivedAt;
 
   // Physician-added diagnosis
   final Diagnosis? diagnosis;
@@ -53,8 +53,8 @@ class PatientRecord {
     required this.facilityName,
     required this.collectedAt,
     required this.updatedAt,
-    this.sentAt,
-    this.receivedAt,
+    this.samplesCollectedAt,
+    this.samplesReceivedAt,
     this.diagnosis,
   });
 
@@ -120,6 +120,23 @@ class PatientRecord {
     'Dec',
   ];
 
+  // formatted getters
+  String get formattedSamplesCollectedAt {
+    if (samplesCollectedAt == null) return 'Not marked yet';
+    final d = samplesCollectedAt!;
+    final h = d.hour.toString().padLeft(2, '0');
+    final m = d.minute.toString().padLeft(2, '0');
+    return '${d.day}-${_months[d.month - 1]}-${d.year} $h:$m';
+  }
+
+  String get formattedSamplesReceivedAt {
+    if (samplesReceivedAt == null) return 'Not yet marked';
+    final d = samplesReceivedAt!;
+    final h = d.hour.toString().padLeft(2, '0');
+    final m = d.minute.toString().padLeft(2, '0');
+    return '${d.day}-${_months[d.month - 1]}-${d.year} $h:$m';
+  }
+
   String get formattedTimestamp {
     final d = collectedAt;
     final months = [
@@ -141,23 +158,23 @@ class PatientRecord {
     return '${d.day}-${months[d.month - 1]}-${d.year} | $h:$m';
   }
 
-  // NEW: formatted sent timestamp
+  /*  // NEW: formatted sent timestamp
   String get formattedSentAt {
     if (sentAt == null) return '—';
     final d = sentAt!;
     final h = d.hour.toString().padLeft(2, '0');
     final m = d.minute.toString().padLeft(2, '0');
     return '${d.day}-${_months[d.month - 1]}-${d.year} $h:$m';
-  }
+  } */
 
-  // NEW: formatted received timestamp
+  /* // NEW: formatted received timestamp
   String get formattedReceivedAt {
     if (receivedAt == null) return 'Pending sync';
     final d = receivedAt!;
     final h = d.hour.toString().padLeft(2, '0');
     final m = d.minute.toString().padLeft(2, '0');
     return '${d.day}-${_months[d.month - 1]}-${d.year} $h:$m';
-  }
+  } */
 
   static DateTime? _parseTimestamp(dynamic value) {
     if (value == null) return null;
@@ -198,10 +215,12 @@ class PatientRecord {
     facilityName: m['facilityName'] as String? ?? '',
     collectedAt: DateTime.parse(m['collectedAt'] as String),
     updatedAt: DateTime.parse(m['updatedAt'] as String),
-    sentAt: m['sentAt'] != null
+    /* sentAt: m['sentAt'] != null
         ? DateTime.tryParse(m['sentAt'] as String)
         : null,
-    receivedAt: _parseTimestamp(m['receivedAt']),
+    receivedAt: _parseTimestamp(m['receivedAt']), */
+    samplesCollectedAt: _parseTimestamp(m['samplesCollectedAt']),
+    samplesReceivedAt: _parseTimestamp(m['samplesReceivedAt']),
     diagnosis: m['diagnosis'] != null
         ? Diagnosis.fromMap(m['diagnosis'] as Map<String, dynamic>)
         : null,
@@ -224,8 +243,10 @@ class PatientRecord {
     'facilityName': facilityName,
     'collectedAt': collectedAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
-    'sentAt': sentAt?.toIso8601String(),
-    'receivedAt': receivedAt?.toIso8601String(),
+    /* 'sentAt': sentAt?.toIso8601String(),
+    'receivedAt': receivedAt?.toIso8601String(), */
+    'samplesCollectedAt': samplesCollectedAt?.toIso8601String(),
+    'samplesReceivedAt': samplesReceivedAt?.toIso8601String(),
     'diagnosis': diagnosis?.toMap(),
   };
 }

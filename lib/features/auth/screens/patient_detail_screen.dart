@@ -15,9 +15,12 @@ import 'package:skinapp2/features/auth/providers/patient_provider.dart';
 import 'package:skinapp2/models/diagnosis.dart';
 import 'package:skinapp2/models/patient.dart';
 import 'package:skinapp2/models/user.dart';
+import 'package:skinapp2/services/firestore_service.dart';
+import 'package:skinapp2/services/local_db_service.dart';
 import 'package:skinapp2/shared/widgets/circular_action_btn.dart';
 import 'package:skinapp2/shared/widgets/id_badge.dart';
 import 'package:skinapp2/shared/widgets/pill_field.dart';
+import 'package:skinapp2/shared/widgets/sample_checkbox.dart';
 
 // ── Section header — pure StatelessWidget, no logic inside ───────────────────
 class _SectionHeader extends StatelessWidget {
@@ -533,6 +536,93 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
     return file;
   }
 
+  String get _currentUserId => ref.read(authProvider).user?.id ?? '';
+
+  Future<void> _markSamplesCollected() async {
+    final now = DateTime.now();
+    final updated = PatientRecord(
+      id: widget.patient.id,
+      idNumber: widget.patient.idNumber,
+      locationCoords: widget.patient.locationCoords,
+      fullName: widget.patient.fullName,
+      dateOfBirth: widget.patient.dateOfBirth,
+      phone: widget.patient.phone,
+      sex: widget.patient.sex,
+      emergencyName: widget.patient.emergencyName,
+      emergencyContact: widget.patient.emergencyContact,
+      photoUrls: widget.patient.photoUrls,
+      clinicalNotes: widget.patient.clinicalNotes,
+      collectorId: widget.patient.collectorId,
+      facilityName: widget.patient.facilityName,
+      collectedAt: widget.patient.collectedAt,
+      updatedAt: now,
+      samplesCollectedAt: now,
+      samplesReceivedAt: widget.patient.samplesReceivedAt,
+      diagnosis: widget.patient.diagnosis,
+    );
+    await _saveUpdatedRecord(updated);
+  }
+
+  Future<void> _markSamplesReceived() async {
+    final now = DateTime.now();
+    final updated = PatientRecord(
+      id: widget.patient.id,
+      idNumber: widget.patient.idNumber,
+      locationCoords: widget.patient.locationCoords,
+      fullName: widget.patient.fullName,
+      dateOfBirth: widget.patient.dateOfBirth,
+      phone: widget.patient.phone,
+      sex: widget.patient.sex,
+      emergencyName: widget.patient.emergencyName,
+      emergencyContact: widget.patient.emergencyContact,
+      photoUrls: widget.patient.photoUrls,
+      clinicalNotes: widget.patient.clinicalNotes,
+      collectorId: widget.patient.collectorId,
+      facilityName: widget.patient.facilityName,
+      collectedAt: widget.patient.collectedAt,
+      updatedAt: now,
+      samplesCollectedAt: widget.patient.samplesCollectedAt,
+      samplesReceivedAt: now,
+      diagnosis: widget.patient.diagnosis,
+    );
+    await _saveUpdatedRecord(updated);
+  }
+
+  Future<void> _saveUpdatedRecord(PatientRecord updated) async {
+    // save locally
+    await LocalDbService().upsertPatient(updated, synced: false);
+
+    final online = ref.read(patientProvider(widget.role)).online;
+    if (online) {
+      try {
+        await FirestoreService().updateSampleTimestamps(
+          updated.id,
+          samplesCollectedAt: updated.samplesCollectedAt,
+          samplesReceivedAt: updated.samplesReceivedAt,
+        );
+        await LocalDbService().markSynced(updated.id);
+      } catch (e) {
+        debugPrint('_saveUpdatedRecord: Firestore failed: $e');
+      }
+    }
+
+    // refresh provider state so UI updates immediately
+    await ref.read(patientProvider(widget.role).notifier).refreshLocal();
+
+    if (mounted) {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            online
+                ? 'Timestamp saved and uploaded.'
+                : 'Timestamp saved offline - will sync when reconnected.',
+          ),
+        ),
+      );
+    }
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -706,24 +796,41 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
               ),
               const SizedBox(height: 12),
               const _SectionHeader(
-                title: 'Transmission',
+                title: 'Sample Tracking',
                 icon: Icons.swap_horiz_rounded,
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child: _InfoRow(
-                      label: 'Sent by Collector',
-                      value: p.formattedSentAt,
-                    ),
-                  ),
-                  Expanded(
-                    child: _InfoRow(
-                      label: 'Received by System',
-                      value: p.formattedReceivedAt,
-                    ),
-                  ),
-                ],
+
+              // samples collected, only editable by collector
+              SampleCheckbox(
+                label: 'Samples Collected',
+                sublabel: 'Marked by the data collector at time of collection',
+                checked: p.samplesCollectedAt != null,
+                checkedAt: p.samplesCollectedAt,
+                editable:
+                    widget.role.isCollector &&
+                    p.samplesCollectedAt == null &&
+                    p.collectorId == _currentUserId,
+                onChanged: (ticked) async {
+                  if (!ticked) return;
+                  setState(() => _saving = true);
+                  await _markSamplesCollected();
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // samples received, only editable by physician
+              SampleCheckbox(
+                label: 'Samples Received',
+                sublabel: 'Marked by the physician upon receipt',
+                checked: p.samplesReceivedAt != null,
+                checkedAt: p.samplesReceivedAt,
+                editable:
+                    widget.role.isPhysician && p.samplesReceivedAt == null,
+                onChanged: (ticked) async {
+                  if (!ticked) return;
+                  setState(() => _saving = true);
+                  await _markSamplesReceived();
+                },
               ),
 
               // ── Section B ─────────────────────────────────────────────────
