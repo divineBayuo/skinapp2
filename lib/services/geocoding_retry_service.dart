@@ -15,7 +15,11 @@ class GeocodingRetryService {
   final FirestoreService _remote = FirestoreService();
   StreamSubscription<List<ConnectivityResult>>? _sub;
 
-  void start() {
+  // called after each successful geocode to enable providers refresh state
+  VoidCallback? onGeocodeResolved;
+
+  void start({VoidCallback? onResolved}) {
+    onGeocodeResolved = onResolved;
     // retry immediately on startup (in case already online)
     _retryPending();
 
@@ -37,6 +41,8 @@ class GeocodingRetryService {
       'GeocodingRetryService: ${pending.length} records need geocoding',
     );
 
+    bool anyResolved = false;
+
     for (final record in pending) {
       if (record.locationCoords.isEmpty) continue;
 
@@ -45,21 +51,41 @@ class GeocodingRetryService {
 
       // update sqlite with the resolved community name
       await _local.markGeocoded(record.id, community);
-      debugPrint('GeocodingRetryService: resolved ${record.id} -> $community');
+      anyResolved = true;
+      debugPrint(
+        'GeocodingRetryService: ✅ SQLite updated — '
+        '${record.id} community -> $community',
+      );
 
       // if the record is already synced to Firestore, update it there too
-      final isSynced = (await _local.getSyncedPatients()).any(
-        (p) => p.id == record.id,
+      final syncedIds = (await _local.getSyncedPatients())
+          .map((p) => p.id)
+          .toSet();
+      debugPrint(
+        'GeocodingRetryService: synced=${syncedIds.contains(record.id)}',
       );
-      if (isSynced) {
+      if (syncedIds.contains(record.id)) {
         try {
           await _remote.updateCommunity(record.id, community);
+          debugPrint(
+            'GeocodingRetryService: ✅ Firestore updated — '
+            '${record.id} community = "$community"',
+          );
         } catch (e) {
-          debugPrint('GeocodingRetryService: Firestore update failed: $e');
+          debugPrint('GeocodingRetryService: ❌ Firestore update failed: $e');
         }
       }
       // if not yet synced, SyncService will push the updated record
       // (including the now-resolved community) when it runs next
+    }
+
+    // notify providers to refresh
+    if (anyResolved) {
+      debugPrint('GeocodingRetryService: calling onGeocodeResolved callback');
+      debugPrint(
+        'GeocodingRetryService: callback is ${onGeocodeResolved == null ? "NULL ❌" : "set ✅"}',
+      );
+      onGeocodeResolved?.call();
     }
   }
 

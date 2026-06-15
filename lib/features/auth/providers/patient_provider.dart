@@ -10,6 +10,7 @@ import 'package:skinapp2/models/patient.dart';
 import 'package:skinapp2/mock_data.dart';
 import 'package:skinapp2/models/user.dart';
 import 'package:skinapp2/services/firestore_service.dart';
+import 'package:skinapp2/services/geocoding_retry_service.dart';
 import 'package:skinapp2/services/local_db_service.dart';
 import 'package:skinapp2/services/sync_service.dart';
 
@@ -62,6 +63,8 @@ class PatientNotifier extends StateNotifier<PatientState> {
     _init();
   }
 
+  Future<void> refreshLocal() => _refreshFromLocal();
+
   Future<void> _init() async {
     state = state.copyWith(loading: true);
 
@@ -76,6 +79,15 @@ class PatientNotifier extends StateNotifier<PatientState> {
     // 3. if online, pull from Firestore and sync pending
     if (online) await _fetchRemote();
     _sync.start();
+
+    // tell geocoding retry service to call refreshLocal()
+    // after each successful reverse geocode
+    GeocodingRetryService().start(
+      onResolved: () async {
+        await _refreshFromLocal();
+        debugPrint('PatientNotifier: community resolved, UI refreshed');
+      },
+    );
 
     // 4. react to future connectivity changes
     _connectSub = Connectivity().onConnectivityChanged.listen((results) async {

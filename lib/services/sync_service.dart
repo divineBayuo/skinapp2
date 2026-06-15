@@ -38,8 +38,24 @@ class SyncService {
       try {
         // upsertPatient handles photo upload internally
         await _remote.upsertPatient(record);
-        await _local.markSynced(record.id);
+
+        // after pushing, preserve the needs_geocoding flag in SQlite
+        // by re-upserting with synced=true but keeping needsGeocoding
+        // based on whether community is still empty
+        final needsGeocoding =
+            record.community.isEmpty && record.locationCoords.isNotEmpty;
+
+        await _local.upsertPatient(
+          record,
+          synced: true,
+          needsGeocoding: needsGeocoding,
+        );
+
         pushed++;
+        debugPrint(
+          'SyncService: pushed ${record.id} '
+          '(needsGeocoding=$needsGeocoding)',
+        );
       } catch (e) {
         debugPrint('SyncService: failed to push ${record.id}: $e');
         // Leave as unsynced; will retry next reconnection

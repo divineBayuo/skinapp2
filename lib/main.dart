@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skinapp2/core/router/app_router.dart';
 import 'package:skinapp2/core/theme/app_theme.dart';
 import 'package:skinapp2/firebase_options.dart';
-import 'package:skinapp2/services/geocoding_retry_service.dart';
+// import 'package:skinapp2/services/geocoding_retry_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,9 +24,9 @@ Future<void> main() async {
         : AppleProvider.deviceCheck, // change to deviceCheck for release
   );
 
-  // start background geocoding retry - resolves community names
+  /* // start background geocoding retry - resolves community names
   // for records captured offline, runs silently in the background
-  GeocodingRetryService().start();
+  GeocodingRetryService().start(); */
 
   runApp(const ProviderScope(child: SkinNtdApp()));
 }

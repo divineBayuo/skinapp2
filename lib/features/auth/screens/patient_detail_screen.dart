@@ -696,12 +696,8 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                 fullWidth: true,
               ),
               const SizedBox(height: 12),
-              if (p.community.isNotEmpty)
-                _InfoRow(
-                  label: 'Community',
-                  value: p.community,
-                  fullWidth: true,
-                ),
+              // if (p.community.isNotEmpty)
+              _InfoRow(label: 'Community', value: p.community, fullWidth: true),
               const SizedBox(height: 12),
               _InfoRow(
                 label: 'Facility',

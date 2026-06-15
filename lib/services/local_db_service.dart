@@ -60,11 +60,32 @@ class LocalDbService {
     bool needsGeocoding = false,
   }) async {
     final d = await db;
+
+    // check if the row already exists and preserve needs_geocoding
+    // if it was previously flagged, don't let a remote fetch clear it
+    final existing = await d.query(
+      'patients',
+      columns: ['needs_geocoding'],
+      where: 'id=?',
+      whereArgs: [p.id],
+    );
+
+    // if a row already exists and was flagged for geocoding
+    // keep that flag unless the caller explicitly passes needsGeocoding
+    // or the community has now been resolved (non-empty)
+    final existingNeedsGeocoding = existing.isNotEmpty
+        ? (existing.first['needs_geocoding'] as int? ?? 0) == 1
+        : false;
+
+    final finalNeedsGeocoding = p.community.isNotEmpty
+        ? false   // community resolved, clear flag
+        : (needsGeocoding || existingNeedsGeocoding);   // preserve if set
+
     await d.insert('patients', {
       'id': p.id,
       'data': jsonEncode(p.toMap()),
       'synced': synced ? 1 : 0,
-      'needs_geocoding': needsGeocoding ? 1 : 0,
+      'needs_geocoding': finalNeedsGeocoding ? 1 : 0,
       'created_at': p.collectedAt.toIso8601String(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
