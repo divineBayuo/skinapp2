@@ -24,9 +24,9 @@ Future<void> main() async {
         : AppleProvider.deviceCheck, // change to deviceCheck for release
   );
 
-  /* // start background geocoding retry - resolves community names
+  // start background geocoding retry - resolves community names
   // for records captured offline, runs silently in the background
-  GeocodingRetryService().start(); */
+  // GeocodingRetryService().start();
 
   runApp(const ProviderScope(child: SkinNtdApp()));
 }

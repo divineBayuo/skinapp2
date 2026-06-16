@@ -59,6 +59,8 @@ class PatientNotifier extends StateNotifier<PatientState> {
   final AccessRole _role;
   StreamSubscription<List<ConnectivityResult>>? _connectSub;
 
+  late final VoidCallback _geocodeCallback;
+
   PatientNotifier(this._role) : super(const PatientState()) {
     _init();
   }
@@ -79,6 +81,18 @@ class PatientNotifier extends StateNotifier<PatientState> {
     // 3. if online, pull from Firestore and sync pending
     if (online) await _fetchRemote();
     _sync.start();
+
+    // register this notifier's refresh as a listener
+    // using a named reference so we can remove it in dispose()
+    _geocodeCallback = () async {
+      debugPrint('PatientNotifier($_role): geocode callback fired');
+      await _refreshFromLocal();
+      debugPrint(
+        'PatientNotifier($_role): refreshed - '
+        'first  community = "${state.records.isNotEmpty ? state.records.first.community : "none"}"',
+      );
+    };
+    GeocodingRetryService().addListener(_geocodeCallback);
 
     // tell geocoding retry service to call refreshLocal()
     // after each successful reverse geocode
@@ -302,6 +316,8 @@ class PatientNotifier extends StateNotifier<PatientState> {
   void dispose() {
     _connectSub?.cancel();
     _sync.dispose();
+    // unregister from geocoding servicee to avoid memory leaks
+    GeocodingRetryService().removeListener(_geocodeCallback);
     super.dispose();
   }
 }

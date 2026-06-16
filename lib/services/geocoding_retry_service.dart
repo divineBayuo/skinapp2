@@ -14,12 +14,32 @@ class GeocodingRetryService {
   final LocalDbService _local = LocalDbService();
   final FirestoreService _remote = FirestoreService();
   StreamSubscription<List<ConnectivityResult>>? _sub;
+  bool _started = false;
+
+  // using a list so multiple notifiers with different roles
+  // can all be notified - each PatientNotifier registers
+  // its own callback
+  final List<VoidCallback> _listeners = [];
+
+  void addListener(VoidCallback callback) {
+    if (!_listeners.contains(callback)) {
+      _listeners.add(callback);
+    }
+  }
+
+  void removeListener(VoidCallback callback) {
+    _listeners.remove(callback);
+  }
 
   // called after each successful geocode to enable providers refresh state
   VoidCallback? onGeocodeResolved;
 
   void start({VoidCallback? onResolved}) {
     onGeocodeResolved = onResolved;
+
+    if (_started) return;
+    _started = true;
+    debugPrint('GeocodingRetryService: started');
     // retry immediately on startup (in case already online)
     _retryPending();
 
@@ -31,11 +51,27 @@ class GeocodingRetryService {
     });
   }
 
-  void dispose() => _sub?.cancel();
+  void dispose() {
+    _sub?.cancel();
+    _listeners.clear();
+    _started = false;
+  }
+
+  void _notifyListeners() {
+    debugPrint(
+      'GeocodingRetryService: notifying ${_listeners.length} listener(s)',
+    );
+    for (final cb in List<VoidCallback>.from(_listeners)) {
+      cb();
+    }
+  }
 
   Future<void> _retryPending() async {
     final pending = await _local.getNeedsGeocoding();
-    if (pending.isEmpty) return;
+    if (pending.isEmpty) {
+      debugPrint('GeocodingRetryService: no pending records');
+      return;
+    }
 
     debugPrint(
       'GeocodingRetryService: ${pending.length} records need geocoding',
@@ -47,7 +83,11 @@ class GeocodingRetryService {
       if (record.locationCoords.isEmpty) continue;
 
       final community = await _geocode(record.locationCoords);
-      if (community == null) continue; // still offline or failed
+      if (community == null) {
+        debugPrint('GeocodingRetryService: could not geocode ${record.id} '
+        '(offline or failed)');
+        continue; // still offline or failed
+      }
 
       // update sqlite with the resolved community name
       await _local.markGeocoded(record.id, community);
@@ -86,6 +126,7 @@ class GeocodingRetryService {
         'GeocodingRetryService: callback is ${onGeocodeResolved == null ? "NULL ❌" : "set ✅"}',
       );
       onGeocodeResolved?.call();
+      _notifyListeners();
     }
   }
 
